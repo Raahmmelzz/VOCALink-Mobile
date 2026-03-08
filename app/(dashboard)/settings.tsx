@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // app/(dashboard)/settings.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -394,11 +395,31 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+=======
+// app/settings.tsx
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { BottomNav } from "../../components/BottomNav";
+
+export default function SettingsScreen() {
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      
+      <View style={styles.center}>
+        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.subtitle}>App Configuration</Text>
+      </View>
+
+      <BottomNav activeTab="settings" />
+
+>>>>>>> 1fa64c315e0df8321605fb83c4b5ff89b58ca833
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+<<<<<<< HEAD
   container: { flex: 1, backgroundColor: "#EEF7FF" },
   header: {
     backgroundColor: C.primary,
@@ -496,3 +517,10 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: "600", color: C.gray },
   chipTextActive: { color: C.white },
 });
+=======
+  container: { flex: 1, backgroundColor: "#F3F9FF" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 8 },
+  title: { fontSize: 22, fontWeight: "800", color: "#1A1A2E" },
+  subtitle: { fontSize: 14, color: "#666" },
+});
+>>>>>>> 1fa64c315e0df8321605fb83c4b5ff89b58ca833
