@@ -1,37 +1,40 @@
-// app/cards.tsx
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomNav } from "../../components/BottomNav";
-import { DashboardCard } from "../../components/DashboardCard"; // Import your new component
+import { DashboardCard } from "../../components/DashboardCard";
+import { useTheme } from "../../contexts/ThemeContext"; // 1. Bring in the brain!
+
+const C = {
+  primary: "#00AEEF",
+  white: "#FFFFFF",
+};
 
 export default function CardsScreen() {
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      
-      {/* We use a ScrollView so the page can scroll if you add many cards */}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        <View style={styles.header}>
-          <Text style={styles.title}>Communication Cards</Text>
-          <Text style={styles.subtitle}>Select a category to speak</Text>
-        </View>
+  const { theme } = useTheme(); // 2. Hook into Dark Mode
 
-        {/* This View acts as your Flexbox container for the cards */}
+  return (
+    // 3. Dynamic background color applied
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      
+      {/* 4. The Signature Blue Header! */}
+      <View style={styles.header}>
+        <View style={styles.headerAccent} />
+        <Text style={styles.headerTitle}>Communication Cards</Text>
+        <Text style={styles.headerSubtitle}>Select a category to speak</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.cardContainer}>
-          {/* Card 1 */}
           <DashboardCard 
             title="Greetings" 
             description="Phrases like 'Hello', 'How are you?', and 'Good morning'." 
           />
-          
-          {/* Card 2 */}
           <DashboardCard 
             title="Needs & Wants" 
             description="Phrases for eating, drinking, and asking for help." 
           />
         </View>
-
       </ScrollView>
 
       <BottomNav activeTab="cards" />
@@ -43,30 +46,46 @@ export default function CardsScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: "#F3F9FF" 
+    backgroundColor: "#EEF7FF" // Base fallback background
   },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 100, // Leaves room so the Bottom Nav doesn't cover the last card
+  // Exact matched styling from Settings/Profile
+  header: { 
+    backgroundColor: C.primary, 
+    paddingHorizontal: 20, 
+    paddingTop: 8, 
+    paddingBottom: 24, 
+    position: "relative", 
+    overflow: "hidden" 
   },
-  header: {
-    marginBottom: 24,
-    alignItems: 'center',
+  headerAccent: { 
+    position: "absolute", 
+    top: -40, 
+    right: -40, 
+    width: 160, 
+    height: 160, 
+    borderRadius: 80, 
+    backgroundColor: "rgba(255,255,255,0.12)" 
   },
-  title: { 
+  headerTitle: { 
+    fontSize: 13, 
+    fontWeight: "700", 
+    color: "rgba(255,255,255,0.75)", 
+    letterSpacing: 1.5, 
+    textTransform: "uppercase", 
+    marginBottom: 8 
+  },
+  headerSubtitle: { 
     fontSize: 22, 
     fontWeight: "800", 
-    color: "#1A1A2E",
-    marginBottom: 8,
+    color: C.white,
   },
-  subtitle: { 
-    fontSize: 14, 
-    color: "#666", 
-    textAlign: "center" 
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 100,
   },
-  // Flexbox container for the cards
   cardContainer: {
-    flexDirection: 'column', // Stacks them vertically
-    gap: 20, // Adds 20px of space between the two cards
+    flexDirection: 'column', 
+    gap: 16, 
   }
 });
