@@ -1,20 +1,24 @@
+// app/index.tsx
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// TODO: This screen is assigned to a teammate.
-// Replace this placeholder with the actual Dashboard screen.
+import { BottomNav } from "../../components/BottomNav"; // <-- 1. Import it here
 
 export default function DashboardScreen() {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      
       <View style={styles.center}>
         <Text style={styles.emoji}>🚧</Text>
         <Text style={styles.title}>Dashboard</Text>
         <Text style={styles.subtitle}>
-          Under construction — assigned to teammate
+          Under construction hehehee
         </Text>
       </View>
+
+      {/* 2. Call it at the bottom of your screen! */}
+      <BottomNav activeTab="home" /> 
+
     </SafeAreaView>
   );
 }
@@ -26,7 +30,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800", color: "#1A1A2E" },
   subtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: "#666", // Changed to grey to fix the red text issue from earlier!
     textAlign: "center",
     paddingHorizontal: 32,
   },

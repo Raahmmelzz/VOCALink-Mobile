@@ -48,7 +48,7 @@ export default function LoginScreen() {
   } = useLoginForm();
 
   const handleLogin = () => {
-    submitLogin(() => router.replace("/(tabs)" as any));
+    submitLogin(() => router.replace("/(dashboard)" as any));
   };
 
   return (
