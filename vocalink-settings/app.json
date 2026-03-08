@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "VocaLink Settings",
+    "slug": "vocalink-settings",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0284C7"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vocalink.settings"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0284C7"
+      },
+      "package": "com.vocalink.settings"
+    }
+  }
+}
