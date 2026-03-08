@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "VOCALink-Mobile",
+    "slug": "VOCALink-Mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "vocalinkmobile",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#00AEEF"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#00AEEF",
+          "dark": {
+            "backgroundColor": "#0073A8"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
