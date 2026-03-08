@@ -1,0 +1,107 @@
+import { Dimensions, StyleSheet } from "react-native";
+
+const { width } = Dimensions.get("window");
+
+export const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bgRingOuter: {
+    position: "absolute",
+    width: width * 1.2,
+    height: width * 1.2,
+    borderRadius: width * 0.6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  bgRingInner: {
+    position: "absolute",
+    width: width * 0.85,
+    height: width * 0.85,
+    borderRadius: width * 0.425,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  logoWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 28,
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  iconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  iconOuter: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconMiddle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconInner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FFFFFF",
+  },
+  brandName: {
+    fontSize: 42,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -1,
+    marginBottom: 10,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.8)",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: 48,
+  },
+  loaderRow: {
+    position: "absolute",
+    bottom: 60,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "rgba(255,255,255,0.4)",
+  },
+  dotActive: {
+    backgroundColor: "#FFFFFF",
+    width: 20,
+    borderRadius: 4,
+  },
+});
