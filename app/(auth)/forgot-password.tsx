@@ -1,37 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/Button";
 import InputField from "../../components/InputField";
+import { useForgotPasswordForm } from "../../hooks/useAuthForm";
 import { forgotPasswordStyles as styles } from "../../styles/forgotPasswordStyles";
 
 export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleReset = () => {
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-    setError("");
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSent(true);
-    }, 1200);
-  };
+  const { email, setEmail, error, loading, sent, submitReset } =
+    useForgotPasswordForm();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -43,7 +29,7 @@ export default function ForgotPasswordScreen() {
           <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle}>Reset Password</Text>
-        <View style={{ width: 36 }} />
+        <View style={styles.topBarSpacer} />
       </View>
 
       {/* White Form Panel */}
@@ -80,7 +66,7 @@ export default function ForgotPasswordScreen() {
             />
             <Button
               title="Send Reset Link"
-              onPress={handleReset}
+              onPress={submitReset}
               loading={loading}
               style={styles.btn}
             />
