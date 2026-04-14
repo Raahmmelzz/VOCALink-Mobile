@@ -30,18 +30,20 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const { fields, errors, rememberMe, loading, setField, setRememberMe, submitLogin } = useLoginForm();
 
-  const handleLogin = () => {
-    submitLogin(() => {
-      // Save to global memory
-      login({
-        displayName: fields.username, 
-        email: `${fields.username}@email.com`, 
-        username: fields.username,
-      });
-      // Route to dashboard
-      router.replace("/(dashboard)" as any);
-    });
-  };
+  // Inside your login.tsx
+const handleLogin = () => {
+  submitLogin((token) => {
+    // 1. Save the token and user to global memory
+    login({
+      displayName: fields.username, 
+      email: fields.username, 
+      username: fields.username,
+    }, token); // <-- Pass the VIP token here!
+    
+    // 2. Route to dashboard
+    router.replace("/(dashboard)" as any);
+  });
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>

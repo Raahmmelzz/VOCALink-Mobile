@@ -1,7 +1,5 @@
-// contexts/AuthContext.tsx
 import React, { createContext, useContext, useState } from 'react';
 
-// Define what our User data looks like
 export type User = {
   displayName: string;
   email: string;
@@ -10,27 +8,36 @@ export type User = {
 
 type AuthContextType = {
   user: User | null;
-  login: (userData: User) => void;
+  token: string | null; // <-- ADD THIS
+  login: (userData: User, token: string) => void; // <-- UPDATE THIS
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// The Provider wraps your app and passes the data down
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null); // <-- ADD THIS
 
-  const login = (userData: User) => setUser(userData);
-  const logout = () => setUser(null);
+  const login = (userData: User, authToken: string) => {
+    setUser(userData);
+    setToken(authToken);
+    // Pro-Tip: Later, you will want to save this token using 'expo-secure-store' 
+    // so the user stays logged in even if they close the app!
+  };
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// A custom hook so any screen can easily grab the user
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within an AuthProvider");

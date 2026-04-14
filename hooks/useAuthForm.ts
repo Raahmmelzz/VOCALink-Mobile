@@ -1,4 +1,5 @@
 import { useState } from "react";
+const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 // ─── Login Hook ───────────────────────────────────────────────
 interface LoginFields {
@@ -38,14 +39,36 @@ export function useLoginForm() {
     return !e.username && !e.password;
   };
 
-  const submitLogin = (onSuccess: () => void) => {
+  // Inside useLoginForm()...
+  const submitLogin = async (onSuccess: (token: string) => void) => {
     if (!validate()) return;
     setLoading(true);
-    // TODO: Replace with real API call
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: fields.username,
+          password: fields.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Django's bouncer rejected the credentials (400 Bad Request)
+        throw new Error(data.non_field_errors?.[0] || "Invalid credentials.");
+      }
+
+      // Success! Pass the VIP token back to the screen
+      onSuccess(data.token);
+      
+    } catch (err: any) {
+      alert(err.message); // Show the user what went wrong
+    } finally {
       setLoading(false);
-      onSuccess();
-    }, 1500);
+    }
   };
 
   return {
@@ -119,14 +142,38 @@ export function useSignupForm() {
     return !Object.values(e).some(Boolean);
   };
 
-  const submitSignup = (onSuccess: () => void) => {
+  const submitSignup = async (onSuccess: () => void) => {
     if (!validate()) return;
     setLoading(true);
-    // TODO: Replace with real API call
-    setTimeout(() => {
-      setLoading(false);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: fields.username,
+          email: fields.email,
+          password: fields.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Django rejected the signup (e.g. username taken)
+        // Convert Django's JSON error object into a readable alert
+        const errorMessage = Object.values(data).flat()[0] as string;
+        throw new Error(errorMessage || "Signup failed.");
+      }
+
+      // Success! User created.
       onSuccess();
-    }, 1500);
+      
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return { fields, errors, loading, setField, submitSignup };
