@@ -13,12 +13,17 @@
       "adaptiveIcon": {
         "backgroundColor": "#00AEEF"
       },
+<<<<<<< HEAD
       "predictiveBackGestureEnabled": false,
       "package": "com.lacsyy.VOCALinkMobile"
+=======
+      "predictiveBackGestureEnabled": false
+>>>>>>> 612435e76d1422de87727ebe5bc5fdfad541e5fb
     },
     "web": {
       "output": "static"
     },
+<<<<<<< HEAD
     "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
@@ -30,5 +35,24 @@
       }
     },
     "owner": "lacsyy"
+=======
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#00AEEF",
+          "dark": {
+            "backgroundColor": "#0073A8"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+>>>>>>> 612435e76d1422de87727ebe5bc5fdfad541e5fb
   }
 }
