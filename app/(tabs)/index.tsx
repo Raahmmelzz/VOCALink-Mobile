@@ -4,6 +4,7 @@ import AACBoard from "../../components/screens/board";
 import Home from "../../components/screens/home";
 import LiveCC from "../../components/screens/livecc";
 import Messages from "../../components/screens/messages";
+import ProfileUI from "../../components/screens/profile"; // 💥 1. Import your new UI
 import BottomNav, { TabName } from "../../components/ui/BottomNav";
 import { Colors as C } from "../../constants/tokens";
 
@@ -26,6 +27,8 @@ const TabsLayout: React.FC = () => {
         return <Messages />;
       case "livecc":
         return <LiveCC />;
+      case "profile": // 💥 2. Add the case for your new tab
+        return <ProfileUI />;
       default:
         return null;
     }

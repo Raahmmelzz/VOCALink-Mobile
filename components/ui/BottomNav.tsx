@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors as C, FontSize, Shadow } from "../../constants/tokens";
 
-export type TabName = "home" | "board" | "messages" | "livecc";
+export type TabName = "home" | "board" | "messages" | "livecc" | "profile";
 
 interface TabItem {
   id: TabName;
@@ -16,6 +16,7 @@ const TABS: TabItem[] = [
   { id: "board", label: "AAC Board", emoji: "🗣" },
   { id: "messages", label: "Messages", emoji: "💬" },
   { id: "livecc", label: "Live CC", emoji: "📝" },
+  { id: "profile", label: "Profile", emoji: "👤" },
 ];
 
 interface BottomNavProps {
