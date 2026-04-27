@@ -13,27 +13,22 @@
       "adaptiveIcon": {
         "backgroundColor": "#00AEEF"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.lacsyy.VOCALinkMobile"
     },
     "web": {
       "output": "static"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#00AEEF",
-          "dark": {
-            "backgroundColor": "#0073A8"
-          }
-        }
-      ]
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b10a6c4c-c861-4098-90b7-58f1eb25ac2c"
+      }
+    },
+    "owner": "lacsyy"
   }
 }

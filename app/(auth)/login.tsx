@@ -1,8 +1,7 @@
-// app/(auth)/login.tsx
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -11,12 +10,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Button from "../../components/Button";
-import InputField from "../../components/InputField";
 import { useAuth } from "../../contexts/AuthContext";
-import { useLoginForm } from "../../hooks/useAuthForm";
 import { loginStyles as styles } from "../../styles/loginStyles";
 
 const PHOTOS = [
@@ -28,8 +27,14 @@ const PHOTOS = [
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const { fields, errors, rememberMe, loading, setField, setRememberMe, submitLogin } = useLoginForm();
+  
+  // Replaced the missing useAuthForm hook with standard React state!
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+<<<<<<< HEAD
   // Inside your login.tsx
 const handleLogin = () => {
   submitLogin((token) => {
@@ -44,6 +49,27 @@ const handleLogin = () => {
     router.replace("/(dashboard)" as any);
   });
 };
+=======
+  const handleLogin = async () => {
+    if (!username || !password) {
+      alert("Please enter both your username/email and password.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Send to FastAPI
+      await login(username, password);
+      // Route to tabs
+      router.replace("/(tabs)" as any);
+    } catch (error: any) {
+      console.log("❌ Login failed!");
+      alert("Login Failed: Invalid credentials. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+>>>>>>> Rammel-Branch
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -73,8 +99,25 @@ const handleLogin = () => {
             <Text style={styles.welcomeTitle}>Welcome Back</Text>
             <Text style={styles.welcomeSubtitle}>Sign in to access your dashboard</Text>
 
-            <InputField label="Username or Email" value={fields.username} onChangeText={(v) => setField("username", v)} placeholder="Enter your username or email" keyboardType="email-address" error={errors.username} />
-            <InputField label="Password" value={fields.password} onChangeText={(v) => setField("password", v)} placeholder="••••••••••" secureTextEntry error={errors.password} />
+            {/* Replaced missing InputField with standard TextInput */}
+            <Text style={fallbackStyles.label}>Username or Email</Text>
+            <TextInput 
+              style={fallbackStyles.input} 
+              value={username} 
+              onChangeText={setUsername} 
+              placeholder="Enter your username or email" 
+              autoCapitalize="none"
+              keyboardType="email-address" 
+            />
+
+            <Text style={fallbackStyles.label}>Password</Text>
+            <TextInput 
+              style={fallbackStyles.input} 
+              value={password} 
+              onChangeText={setPassword} 
+              placeholder="••••••••••" 
+              secureTextEntry 
+            />
 
             <View style={styles.optionsRow}>
               <TouchableOpacity style={styles.rememberRow} onPress={() => setRememberMe(!rememberMe)} activeOpacity={0.7}>
@@ -88,7 +131,14 @@ const handleLogin = () => {
               </TouchableOpacity>
             </View>
 
-            <Button title="Sign In" onPress={handleLogin} loading={loading} />
+            {/* Replaced missing Button with standard TouchableOpacity */}
+            <TouchableOpacity 
+              style={[fallbackStyles.button, loading && fallbackStyles.buttonDisabled]} 
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={fallbackStyles.buttonText}>Sign In</Text>}
+            </TouchableOpacity>
 
             <View style={styles.signupRow}>
               <Text style={styles.signupText}>Don't have an account? </Text>
@@ -102,3 +152,12 @@ const handleLogin = () => {
     </SafeAreaView>
   );
 }
+
+// Fallback styles for the missing components
+const fallbackStyles = StyleSheet.create({
+  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
+  input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
+  button: { backgroundColor: '#00AEEF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  buttonDisabled: { backgroundColor: '#9CA3AF' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+});

@@ -1,39 +1,64 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Button from "../../components/Button";
-import InputField from "../../components/InputField";
-import VocaLinkLogo from "../../components/VocaLinkLogo";
 import { useAuth } from "../../contexts/AuthContext";
-import { useSignupForm } from "../../hooks/useAuthForm";
-import { signupStyles as styles } from "../../styles/signupStyles";
+// Reusing the beautiful styles your groupmate built for the login screen
+import { loginStyles as styles } from "../../styles/loginStyles";
+
+const PHOTOS = [
+  { source: require("../../assets/images/hero-1.jpg"), style: styles.photoTopLeft },
+  { source: require("../../assets/images/hero-2.jpg"), style: styles.photoTopRight },
+  { source: require("../../assets/images/hero-3.jpg"), style: styles.photoBottomLeft },
+  { source: require("../../assets/images/hero-4.jpg"), style: styles.photoBottomRight },
+];
 
 export default function SignupScreen() {
-  const { login } = useAuth();
-  const { fields, errors, loading, setField, submitSignup } = useSignupForm();
+  const { signup } = useAuth();
+  
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
-    submitSignup(() => {
-      // 1. Save the new user to global memory FIRST
-      login({
-        displayName: fields.fullName, 
-        email: fields.email,
-        username: fields.username,
-      });
+  const handleSignup = async () => {
+    if (!username || !email || !password) {
+      Alert.alert("Hold up!", "Please fill in all the fields.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log(`🚀 Trying to register: ${username} / ${email}`);
+      // Talk to FastAPI
+      await signup(username, email, password);
       
-      // 2. Route to dashboard safely
-      router.replace("/(dashboard)" as any);
-    });
+      console.log("✅ Signup successful! Routing to tabs...");
+      router.replace("/(tabs)" as any);
+      
+    } catch (error) {
+      const err = error as any; 
+      console.log("❌ SIGNUP REJECTED BY FASTAPI:");
+      console.log(JSON.stringify(err.response?.data, null, 2) || err.message);
+      
+      Alert.alert("Signup Failed", "Check your Metro terminal for the exact reason!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,27 +66,72 @@ export default function SignupScreen() {
       <StatusBar style="light" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <LinearGradient colors={["#00AEEF", "#0284C7", "#0369A1"]} style={styles.topBar}>
-            <VocaLinkLogo size="small" dark={false} />
-            <Text style={styles.topBarTagline}>Join thousands empowering communication</Text>
+          
+          {/* The Beautiful Top Header */}
+          <LinearGradient colors={["#00AEEF", "#0284C7", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bluePanel}>
+            <View style={styles.photosContainer}>
+              {PHOTOS.map((photo, i) => (
+                <Image key={i} source={photo.source} style={photo.style} />
+              ))}
+            </View>
+            <View style={styles.centerBrand}>
+              <View style={styles.logoIconWrapper}>
+                <View style={styles.logoOuter}>
+                  <View style={styles.logoMiddle}>
+                    <View style={styles.logoDot} />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.brandName}>VocaLink</Text>
+              <Text style={styles.brandTagline}>Join our community and start communicating seamlessly today.</Text>
+            </View>
           </LinearGradient>
 
+          {/* The Form Panel */}
           <View style={styles.formPanel}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Sign up to get started with VocaLink</Text>
+            <Text style={styles.welcomeTitle}>Create Account</Text>
+            <Text style={styles.welcomeSubtitle}>Join VocaLink today</Text>
 
-            <InputField label="Full Name" value={fields.fullName} onChangeText={(v) => setField("fullName", v)} placeholder="Enter your full name" autoCapitalize="words" error={errors.fullName} />
-            <InputField label="Email Address" value={fields.email} onChangeText={(v) => setField("email", v)} placeholder="Enter your email" keyboardType="email-address" error={errors.email} />
-            <InputField label="Username" value={fields.username} onChangeText={(v) => setField("username", v)} placeholder="Choose a username" error={errors.username} />
-            <InputField label="Password" value={fields.password} onChangeText={(v) => setField("password", v)} placeholder="Create a password" secureTextEntry error={errors.password} />
-            <InputField label="Confirm Password" value={fields.confirmPassword} onChangeText={(v) => setField("confirmPassword", v)} placeholder="Repeat your password" secureTextEntry error={errors.confirmPassword} />
+            <Text style={fallbackStyles.label}>Username</Text>
+            <TextInput
+              style={fallbackStyles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="e.g. test999"
+              autoCapitalize="none"
+            />
 
-            <Button title="Create Account" onPress={handleSignup} loading={loading} style={styles.btn} />
+            <Text style={fallbackStyles.label}>Email Address</Text>
+            <TextInput
+              style={fallbackStyles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="test999@email.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
 
-            <View style={styles.loginRow}>
-              <Text style={styles.loginText}>Already have an account? </Text>
+            <Text style={fallbackStyles.label}>Password</Text>
+            <TextInput
+              style={fallbackStyles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••••"
+              secureTextEntry
+            />
+
+            <TouchableOpacity 
+              style={[fallbackStyles.button, loading && fallbackStyles.buttonDisabled]} 
+              onPress={handleSignup}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={fallbackStyles.buttonText}>Sign Up</Text>}
+            </TouchableOpacity>
+
+            <View style={styles.signupRow}>
+              <Text style={styles.signupText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => router.push("/(auth)/login" as any)}>
-                <Text style={styles.loginLink}>Sign In</Text>
+                <Text style={styles.signupLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -70,3 +140,12 @@ export default function SignupScreen() {
     </SafeAreaView>
   );
 }
+
+// Fallback styles for inputs and buttons so we don't need the missing custom components
+const fallbackStyles = StyleSheet.create({
+  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
+  input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
+  button: { backgroundColor: '#00AEEF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  buttonDisabled: { backgroundColor: '#9CA3AF' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+});
