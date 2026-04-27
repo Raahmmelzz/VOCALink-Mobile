@@ -8,10 +8,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Button from "../../components/Button";
-import InputField from "../../components/InputField";
 import { forgotPasswordStyles as styles } from "../../styles/forgotPasswordStyles";
 
 export default function ForgotPasswordScreen() {
@@ -58,11 +59,12 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.successText}>
               Check your inbox for instructions to reset your password.
             </Text>
-            <Button
-              title="Back to Sign In"
+            <TouchableOpacity 
+              style={fallbackStyles.button} 
               onPress={() => router.push("/(auth)/login" as any)}
-              style={styles.btn}
-            />
+            >
+              <Text style={fallbackStyles.buttonText}>Back to Sign In</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View>
@@ -70,28 +72,43 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.subtitle}>
               Enter your email and we'll send you a reset link.
             </Text>
-            <InputField
-              label="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              error={error}
+            
+            <Text style={fallbackStyles.label}>Email Address</Text>
+            <TextInput 
+              style={[fallbackStyles.input, error ? { borderColor: 'red' } : null]} 
+              value={email} 
+              onChangeText={setEmail} 
+              placeholder="Enter your email" 
+              autoCapitalize="none"
+              keyboardType="email-address" 
             />
-            <Button
-              title="Send Reset Link"
+            {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}
+
+            <TouchableOpacity 
+              style={[fallbackStyles.button, loading && fallbackStyles.buttonDisabled]} 
               onPress={handleReset}
-              loading={loading}
-              style={styles.btn}
-            />
-            <Button
-              title="Back to Sign In"
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={fallbackStyles.buttonText}>Send Reset Link</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[fallbackStyles.button, { backgroundColor: 'transparent', marginTop: 10 }]} 
               onPress={() => router.push("/(auth)/login" as any)}
-              variant="ghost"
-            />
+            >
+              <Text style={[fallbackStyles.buttonText, { color: '#00AEEF' }]}>Back to Sign In</Text>
+            </TouchableOpacity>
           </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const fallbackStyles = StyleSheet.create({
+  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
+  input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
+  button: { backgroundColor: '#00AEEF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  buttonDisabled: { backgroundColor: '#9CA3AF' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+});
