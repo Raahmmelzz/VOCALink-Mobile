@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CC_LINES } from "../../constants/mockdata";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Colors as C,
   FontSize,
@@ -11,15 +11,69 @@ import {
 } from "../../constants/tokens";
 import { Badge } from "../ui/shared";
 
+const WS_URL = "wss://vocalink-fastapi.onrender.com/ws/cc";
+
+
+interface CCLine {
+  text: string;
+  speaker: string;
+  time: string;
+}
+
 const LiveCC: React.FC = () => {
+  const { token } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [lines, setLines] = useState<CCLine[]>([]);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
-  }, []);
+    if (!token) return;
+
+    const connect = () => {
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // Send token as first message for authentication
+        ws.send(token);
+        setConnected(true);
+        console.log("✅ WebSocket connected");
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg: CCLine = JSON.parse(e.data);
+          setLines((prev) => [...prev, msg]);
+          // Auto-scroll to bottom
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        } catch {
+          console.log("Failed to parse WS message:", e.data);
+        }
+      };
+
+      ws.onclose = () => {
+        setConnected(false);
+        console.log("🔌 WebSocket disconnected — retrying in 3s");
+        // Auto-reconnect after 3 seconds
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = (e) => {
+        console.log("WebSocket error:", e);
+        ws.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      wsRef.current?.close();
+    };
+  }, [token]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -28,7 +82,9 @@ const LiveCC: React.FC = () => {
             {"Teacher's"} speech appears here in real time
           </Text>
         </View>
-        <Badge color="teal">Live</Badge>
+        <Badge color={connected ? "teal" : "gray"}>
+          {connected ? "Live" : "Connecting..."}
+        </Badge>
       </View>
 
       {/* CC feed */}
@@ -37,48 +93,61 @@ const LiveCC: React.FC = () => {
         contentContainerStyle={styles.feed}
         showsVerticalScrollIndicator={false}
       >
-        {CC_LINES.map((line, i) => {
-          const isTeacher = line.speaker === "teacher";
-          const isLatest = i === CC_LINES.length - 1;
-          return (
-            <View
-              key={i}
-              style={[
-                styles.ccCard,
-                isTeacher ? styles.ccCardTeacher : styles.ccCardReply,
-                isLatest && styles.ccCardLatest,
-              ]}
-            >
-              <View style={styles.ccTop}>
-                <Text
-                  style={[
-                    styles.ccSpeaker,
-                    isTeacher ? styles.ccSpeakerTeacher : styles.ccSpeakerReply,
-                  ]}
-                >
-                  {isTeacher ? "👩‍🏫 Teacher" : "✉️ Teacher replied"}
+        {lines.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>
+              Waiting for teacher to speak...
+            </Text>
+          </View>
+        ) : (
+          lines.map((line, i) => {
+            const isTeacher = line.speaker === "teacher";
+            const isLatest = i === lines.length - 1;
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.ccCard,
+                  isTeacher ? styles.ccCardTeacher : styles.ccCardReply,
+                  isLatest && styles.ccCardLatest,
+                ]}
+              >
+                <View style={styles.ccTop}>
+                  <Text
+                    style={[
+                      styles.ccSpeaker,
+                      isTeacher
+                        ? styles.ccSpeakerTeacher
+                        : styles.ccSpeakerReply,
+                    ]}
+                  >
+                    {isTeacher ? "👩‍🏫 Teacher" : "✉️ Teacher replied"}
+                  </Text>
+                  <Text style={styles.ccTime}>{line.time}</Text>
+                </View>
+                <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
+                  {line.text}
                 </Text>
-                <Text style={styles.ccTime}>{line.time}</Text>
               </View>
-              <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
-                {line.text}
-              </Text>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
 
         {/* Live indicator */}
         <View style={styles.liveRow}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>Waiting for teacher to speak...</Text>
+          <View style={[styles.liveDot, connected && styles.liveDotActive]} />
+          <Text style={styles.liveText}>
+            {connected
+              ? "Connected — captions will appear here"
+              : "Reconnecting..."}
+          </Text>
         </View>
       </ScrollView>
 
       {/* Info footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          📱 Captions auto-scroll as your teacher speaks. Tap any card to
-          replay.
+          📱 Captions auto-scroll as your teacher speaks.
         </Text>
       </View>
     </SafeAreaView>
@@ -102,6 +171,9 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 2 },
 
   feed: { padding: Spacing.lg, gap: 10, paddingBottom: 16 },
+
+  emptyWrap: { alignItems: "center", marginTop: 60 },
+  emptyText: { fontSize: FontSize.sm, color: C.text3 },
 
   ccCard: {
     borderRadius: Radius.md,
@@ -137,6 +209,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: C.gray2,
+  },
+  liveDotActive: {
     backgroundColor: C.tealMid,
   },
   liveText: { fontSize: FontSize.xs, color: C.text3 },

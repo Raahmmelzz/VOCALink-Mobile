@@ -6,7 +6,7 @@ const PHOTO_SIZE = (width - 48) / 2.2;
 export const loginStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#00AEEF",
+    backgroundColor: "#1AADDC",
   },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1 },
@@ -180,8 +180,8 @@ export const loginStyles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   checkboxOn: {
-    backgroundColor: "#00AEEF",
-    borderColor: "#00AEEF",
+    backgroundColor: "#1AADDC",
+    borderColor: "#1AADDC",
   },
   checkmark: {
     color: "#FFFFFF",
@@ -195,7 +195,7 @@ export const loginStyles = StyleSheet.create({
   forgotText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#00AEEF",
+    color: "#1AADDC",
   },
   signupRow: {
     flexDirection: "row",
@@ -209,6 +209,6 @@ export const loginStyles = StyleSheet.create({
   signupLink: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#00AEEF",
+    color: "#1AADDC",
   },
 });

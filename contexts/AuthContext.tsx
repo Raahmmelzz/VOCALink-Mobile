@@ -1,7 +1,12 @@
-import React, { createContext, useContext, useState } from 'react';
-import axios from 'axios'; 
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+import { storage } from '../utils/storage';
+import { API_BASE_URL } from '../constants/api';
+
+const TOKEN_KEY = 'auth_token';
 
 export type User = {
+  id?: number;
   email?: string;
   username?: string;
   department?: string;
@@ -14,8 +19,9 @@ export type User = {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isLoading: boolean;
   login: (identifier: string, password: string) => Promise<void>;
-  signup: (username: string, email: string, password: string) => Promise<void>;
+  signup: (username: string, email: string, password: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -24,80 +30,97 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  // These variables live INSIDE the AuthProvider
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // On app start, restore saved token and fetch user profile
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const stored = await storage.getItem(TOKEN_KEY);
+        if (stored) {
+          setToken(stored);
+          const res = await axios.get(`${API_BASE_URL}/profile/me`, {
+            headers: { Authorization: `Bearer ${stored}` },
+          });
+          setUser(res.data);
+        }
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status === 401) {
+          // Token is actually invalid — clear it
+          await storage.deleteItem(TOKEN_KEY);
+          setToken(null);
+          setUser(null);
+        }
+        // Network error (Render sleeping, no internet) — keep the token,
+        // the user stays logged in and the app will retry on next action
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    restoreSession();
+  }, []);
 
   const login = async (identifier: string, password: string) => {
+    const response = await axios.post(`${API_BASE_URL}/auth/login/`, {
+      identifier,
+      password,
+    });
+
+    const accessToken: string = response.data.access_token;
+    await storage.setItem(TOKEN_KEY, accessToken);
+    setToken(accessToken);
+
     try {
-      console.log(`Sending login to FastAPI for: ${identifier}`);
-      const response = await axios.post('https://vocalink-fastapi.onrender.com/api/auth/login/', { 
-        identifier: identifier, 
-        password: password 
+      const profileRes = await axios.get(`${API_BASE_URL}/profile/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-      setToken(response.data.access_token || "secure-vip-token");
-      setUser({ username: identifier, email: identifier });
-    } catch (error) {
-      console.error("Login Error:", error);
-      throw error;
+      setUser(profileRes.data);
+    } catch {
+      setUser({ username: identifier });
     }
   };
 
-  const signup = async (username: string, email: string, password: string) => {
-    try {
-      console.log(`Sending signup to FastAPI for: ${username}`);
-      await axios.post('https://vocalink-fastapi.onrender.com/api/auth/register/', {
-        username: username,
-        email: email,
-        password: password,
-        status: "STUDENT" 
-      });
-      await login(email, password);
-    } catch (error) {
-      console.error("Signup Error:", error);
-      throw error;
-    }
+  const signup = async (username: string, email: string, password: string, fullName?: string) => {
+    const [first_name, ...rest] = (fullName ?? '').trim().split(' ');
+    const last_name = rest.join(' ');
+
+    await axios.post(`${API_BASE_URL}/auth/register/`, {
+      username,
+      email,
+      password,
+      status: 'STUDENT',
+      ...(first_name && { first_name }),
+      ...(last_name && { last_name }),
+    });
+
+    await login(username, password);
   };
 
-  // 💥 The Update function is safely INSIDE the provider now!
   const updateProfile = async (profileData: Partial<User>) => {
-    try {
-      console.log("Saving changes to database...");
-      await axios.put('https://vocalink-fastapi.onrender.com/api/profile/me', profileData, {
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      
-      // Fixed the 'any' type error by explicitly stating (prev: User | null)
-      setUser((prev: User | null) => prev ? { ...prev, ...profileData } : null);
-      
-    } catch (error) {
-      console.error("Update Error:", error);
-      throw error;
-    }
+    await axios.put(`${API_BASE_URL}/profile/me`, profileData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser((prev) => (prev ? { ...prev, ...profileData } : null));
   };
 
-  // 💥 The Delete function is safely INSIDE the provider now!
   const deleteAccount = async () => {
-    try {
-      await axios.delete('https://vocalink-fastapi.onrender.com/api/profile/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setToken(null);
-      setUser(null);
-    } catch (error) {
-      console.error("Delete Error:", error);
-      throw error;
-    }
+    await axios.delete(`${API_BASE_URL}/profile/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await logout();
   };
 
   const logout = async () => {
+    await storage.deleteItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
   };
 
   return (
-    // 💥 Every single function is properly handed over to the app here!
-    <AuthContext.Provider value={{ user, token, login, signup, logout, updateProfile, deleteAccount }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, signup, logout, updateProfile, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );
@@ -105,6 +128,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

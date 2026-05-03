@@ -16,10 +16,10 @@ export default function ProfileUI() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Profile Header Card */}
-        <LinearGradient colors={["#00AEEF", "#0284C7"]} style={styles.headerCard}>
+        <LinearGradient colors={["#1AADDC", "#0284C7"]} style={styles.headerCard}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>{initial}</Text>
           </View>
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   container: { padding: 20 },
   headerCard: { borderRadius: 20, padding: 30, alignItems: 'center', marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   avatarCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  avatarText: { fontSize: 36, fontWeight: 'bold', color: '#00AEEF' },
+  avatarText: { fontSize: 36, fontWeight: 'bold', color: '#1AADDC' },
   greetingText: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   badge: { backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   badgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
   readOnlyInput: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16 },
   inputText: { fontSize: 16, color: '#6B7280' },
-  editButton: { backgroundColor: '#00AEEF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  editButton: { backgroundColor: '#1AADDC', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   editButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
   logoutButton: { backgroundColor: '#FEE2E2', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16 },
   logoutButtonText: { color: '#DC2626', fontSize: 16, fontWeight: 'bold' }

@@ -30,13 +30,14 @@ const PHOTOS = [
 export default function SignupScreen() {
   const { signup } = useAuth();
   
+  const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!username || !email || !password) {
+    if (!fullName || !username || !email || !password) {
       Alert.alert("Hold up!", "Please fill in all the fields.");
       return;
     }
@@ -44,8 +45,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       console.log(`🚀 Trying to register: ${username} / ${email}`);
-      // Talk to FastAPI
-      await signup(username, email, password);
+      await signup(username, email, password, fullName);
       
       console.log("✅ Signup successful! Routing to tabs...");
       router.replace("/(tabs)" as any);
@@ -68,7 +68,7 @@ export default function SignupScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           
           {/* The Beautiful Top Header */}
-          <LinearGradient colors={["#00AEEF", "#0284C7", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bluePanel}>
+          <LinearGradient colors={["#1AADDC", "#0E8DB8", "#0A6E92"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bluePanel}>
             <View style={styles.photosContainer}>
               {PHOTOS.map((photo, i) => (
                 <Image key={i} source={photo.source} style={photo.style} />
@@ -91,6 +91,15 @@ export default function SignupScreen() {
           <View style={styles.formPanel}>
             <Text style={styles.welcomeTitle}>Create Account</Text>
             <Text style={styles.welcomeSubtitle}>Join VocaLink today</Text>
+
+            <Text style={fallbackStyles.label}>Full Name</Text>
+            <TextInput
+              style={fallbackStyles.input}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="e.g. Juan Dela Cruz"
+              autoCapitalize="words"
+            />
 
             <Text style={fallbackStyles.label}>Username</Text>
             <TextInput
@@ -145,7 +154,7 @@ export default function SignupScreen() {
 const fallbackStyles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
   input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
-  button: { backgroundColor: '#00AEEF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  button: { backgroundColor: '#1AADDC', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   buttonDisabled: { backgroundColor: '#9CA3AF' },
   buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
 });

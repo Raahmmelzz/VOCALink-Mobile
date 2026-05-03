@@ -1,8 +1,8 @@
-// Replace all imports at the top with these corrected paths:
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CURRENT_STUDENT, QUICK_ICONS } from "../../constants/mockdata";
+import { useAuth } from "../../contexts/AuthContext";
+import { QUICK_ICONS } from "../../constants/mockdata";
 import {
   Colors as C,
   FontSize,
@@ -11,8 +11,17 @@ import {
   Spacing,
 } from "../../constants/tokens";
 import type { TabName } from "../ui/BottomNav";
-import VocaLinkLogo from "../ui/VocaLinkLogo"; // ← was ../../components/ui/
 import { Badge, Card, IconPill } from "../ui/shared"; // ← already correct
+
+const LoginLogo = () => (
+  <View style={logoStyles.wrapper}>
+    <View style={logoStyles.outer}>
+      <View style={logoStyles.middle}>
+        <View style={logoStyles.dot} />
+      </View>
+    </View>
+  </View>
+);
 
 interface HomeProps {
   setActive: (tab: TabName) => void;
@@ -20,29 +29,34 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
+  const { user } = useAuth();
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const rawUsername = user?.username;
+  const usernameIsEmail = rawUsername?.includes("@");
+  const displayName = user?.first_name || (!usernameIsEmail ? rawUsername : null) || "there";
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <LoginLogo />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>
+            {greeting}, {displayName} 👋
+          </Text>
+          <Text style={styles.headerSub}>
+            {user?.department ?? "VocaLink"}
+          </Text>
+        </View>
+        <Badge color="purple">Online</Badge>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Topbar */}
-        <View style={styles.topbar}>
-          <VocaLinkLogo size={28} showLabel={false} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              {greeting}, {CURRENT_STUDENT.name.split(" ")[0]} 👋
-            </Text>
-            <Text style={styles.section}>
-              {CURRENT_STUDENT.section} · {CURRENT_STUDENT.teacher}
-            </Text>
-          </View>
-          <Badge color="purple">Online</Badge>
-        </View>
 
         {/* Teacher reply notification */}
         {teacherReply && (
@@ -93,9 +107,9 @@ const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
         <Card>
           <Text style={styles.cardTitle}>{"Today's session"}</Text>
           {[
-            { lbl: "Subject", val: "Science" },
-            { lbl: "Teacher", val: CURRENT_STUDENT.teacher },
-            { lbl: "Section", val: CURRENT_STUDENT.section },
+            { lbl: "Session Type", val: "General Classroom Communication" },
+            { lbl: "Username", val: user?.username ?? "—" },
+            { lbl: "Department", val: user?.department ?? "—" },
           ].map((r, i) => (
             <View key={i} style={styles.infoRow}>
               <Text style={styles.infoLbl}>{r.lbl}</Text>
@@ -112,14 +126,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   scroll: { padding: Spacing.lg, gap: 14, paddingBottom: 32 },
 
-  topbar: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 4,
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray2,
+    backgroundColor: C.white,
   },
-  greeting: { fontSize: FontSize.base, fontWeight: "600", color: C.text },
-  section: { fontSize: FontSize.xs, color: C.text3, marginTop: 1 },
+  headerTitle: { fontSize: FontSize.base, fontWeight: "600", color: C.text },
+  headerSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 1 },
 
   replyBanner: {
     backgroundColor: C.tealLight,
@@ -171,6 +188,43 @@ const styles = StyleSheet.create({
   },
   infoLbl: { fontSize: FontSize.sm, color: C.text3 },
   infoVal: { fontSize: FontSize.sm, color: C.text, fontWeight: "500" },
+});
+
+const logoStyles = StyleSheet.create({
+  wrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(26,173,220,0.1)",
+    borderWidth: 1.5,
+    borderColor: "rgba(26,173,220,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  outer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#1AADDC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  middle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#1AADDC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#1AADDC",
+  },
 });
 
 export default Home;

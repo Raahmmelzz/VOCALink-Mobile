@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// ✅ Fixed:
 import {
   FlatList,
   ScrollView,
@@ -9,8 +8,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import axios from "axios";
+import * as Speech from "expo-speech";
 
 import { AAC_ICONS } from "../../constants/mockdata";
+import { API_BASE_URL } from "../../constants/api";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Colors as C,
   FontSize,
@@ -34,6 +37,7 @@ interface AACBoardProps {
 }
 
 const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
+  const { token } = useAuth();
   const [category, setCategory] = useState<AACCategory>("all");
   const [selected, setSelected] = useState<AACIcon[]>([]);
   const [speaking, setSpeaking] = useState(false);
@@ -49,12 +53,24 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   const handleSpeak = () => {
     if (!selected.length) return;
     setSpeaking(true);
-    setTimeout(() => setSpeaking(false), 2000);
+    Speech.speak(messageText, {
+      language: "en",
+      pitch: 1.0,
+      rate: 0.9,
+      onDone: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
+    });
   };
 
   const handleSend = () => {
     if (!selected.length) return;
     onSendToTeacher?.(messageText);
+    // Log the full composed message to FastAPI
+    axios.post(
+      `${API_BASE_URL}/logs/`,
+      { icon_id: "message", icon_label: messageText, message: messageText },
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).catch(() => {});
     setSent(true);
     setTimeout(() => {
       setSent(false);
@@ -64,6 +80,12 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
 
   const handleIconPress = (icon: AACIcon) => {
     setSelected((prev) => [...prev, icon]);
+    // Log the tap to FastAPI (fire and forget)
+    axios.post(
+      `${API_BASE_URL}/logs/`,
+      { icon_id: icon.id, icon_label: icon.label },
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).catch(() => {}); // silently ignore if offline
   };
 
   const removeIcon = (index: number) => {
@@ -71,7 +93,7 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>AAC Board</Text>
@@ -248,7 +270,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     padding: Spacing.lg,
-    paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: C.gray2,
     backgroundColor: C.white,
