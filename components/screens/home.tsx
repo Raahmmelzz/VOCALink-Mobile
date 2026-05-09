@@ -1,230 +1,214 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../contexts/AuthContext";
 import { QUICK_ICONS } from "../../constants/mockdata";
-import {
-  Colors as C,
-  FontSize,
-  Radius,
-  Shadow,
-  Spacing,
-} from "../../constants/tokens";
+import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 import type { TabName } from "../ui/BottomNav";
-import { Badge, Card, IconPill } from "../ui/shared"; // ← already correct
-
-const LoginLogo = () => (
-  <View style={logoStyles.wrapper}>
-    <View style={logoStyles.outer}>
-      <View style={logoStyles.middle}>
-        <View style={logoStyles.dot} />
-      </View>
-    </View>
-  </View>
-);
+import { Badge, IconPill } from "../ui/shared";
 
 interface HomeProps {
   setActive: (tab: TabName) => void;
   teacherReply?: string | null;
 }
 
+const CTAButton: React.FC<{
+  emoji: string;
+  label: string;
+  sub: string;
+  color: string;
+  onPress: () => void;
+}> = ({ emoji, label, sub, color, onPress }) => (
+  <TouchableOpacity
+    onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }}
+    activeOpacity={0.85}
+    style={[styles.ctaCard, { borderLeftColor: color, borderLeftWidth: 4 }]}
+  >
+    <Text style={styles.ctaEmoji}>{emoji}</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.ctaLabel}>{label}</Text>
+      <Text style={styles.ctaSub}>{sub}</Text>
+    </View>
+    <Text style={[styles.ctaArrow, { color }]}>›</Text>
+  </TouchableOpacity>
+);
+
 const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
   const { user } = useAuth();
   const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const rawUsername = user?.username;
   const usernameIsEmail = rawUsername?.includes("@");
   const displayName = user?.first_name || (!usernameIsEmail ? rawUsername : null) || "there";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <LoginLogo />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>
-            {greeting}, {displayName} 👋
-          </Text>
-          <Text style={styles.headerSub}>
-            {user?.department ?? "VocaLink"}
-          </Text>
-        </View>
-        <Badge color="purple">Online</Badge>
-      </View>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+        {/* Hero header */}
+        <LinearGradient
+          colors={["#0F172A", "#1E293B", "#0E8DB8"]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <Badge color="teal" style={{ marginBottom: 10 }}>Online</Badge>
+          <Text style={styles.heroGreeting}>{greeting},</Text>
+          <Text style={styles.heroName}>{displayName} 👋</Text>
+          <Text style={styles.heroSub}>
+            {user?.teacher_name ? `Your teacher: ${user.teacher_name}` : "VocaLink — Your voice matters"}
+          </Text>
+        </LinearGradient>
 
         {/* Teacher reply notification */}
         {teacherReply && (
           <View style={styles.replyBanner}>
-            <Text style={styles.replyLabel}>Teacher replied</Text>
-            <Text style={styles.replyText}>{teacherReply}</Text>
+            <Text style={styles.replyIcon}>👩‍🏫</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.replyLabel}>Teacher says:</Text>
+              <Text style={styles.replyText}>{teacherReply}</Text>
+            </View>
           </View>
         )}
 
         {/* Quick express */}
-        <Card style={styles.card}>
-          <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>Quick express</Text>
-            <Text style={styles.cardSub} onPress={() => setActive("board")}>
-              See all →
-            </Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>Quick Express</Text>
+            <TouchableOpacity
+              onPress={() => { Haptics.selectionAsync(); setActive("board"); }}
+              style={styles.seeAllBtn}
+            >
+              <Text style={styles.seeAllText}>See all →</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.iconGrid}>
-            {QUICK_ICONS.map((icon) => (
+          <View style={styles.quickGrid}>
+            {QUICK_ICONS.map(icon => (
               <IconPill
                 key={icon.id}
                 emoji={icon.emoji}
                 label={icon.label}
                 bg={icon.bg}
-                size="md"
+                size="lg"
                 onPress={() => setActive("board")}
               />
             ))}
           </View>
-        </Card>
-
-        {/* Open full board CTA */}
-        <View style={styles.ctaRow}>
-          {[
-            { label: "🗣  Full AAC board", tab: "board" as TabName },
-            { label: "💬  View messages", tab: "messages" as TabName },
-            { label: "📝  Live CC", tab: "livecc" as TabName },
-          ].map((cta) => (
-            <View key={cta.tab} style={styles.ctaBtn}>
-              <Text style={styles.ctaText} onPress={() => setActive(cta.tab)}>
-                {cta.label}
-              </Text>
-            </View>
-          ))}
         </View>
 
-        {/* Session info card */}
-        <Card>
-          <Text style={styles.cardTitle}>{"Today's session"}</Text>
+        {/* Navigation shortcuts */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Go to</Text>
+          <View style={styles.ctaList}>
+            <CTAButton
+              emoji="🗣"
+              label="Full AAC Board"
+              sub="Tap icons to communicate"
+              color={C.purple}
+              onPress={() => setActive("board")}
+            />
+            <CTAButton
+              emoji="💬"
+              label="Messages"
+              sub="View your conversations"
+              color={C.teal}
+              onPress={() => setActive("messages")}
+            />
+            <CTAButton
+              emoji="📝"
+              label="Live Captions"
+              sub="See what teacher is saying"
+              color="#22C55E"
+              onPress={() => setActive("livecc")}
+            />
+          </View>
+        </View>
+
+        {/* Student info card */}
+        <View style={[styles.section, styles.infoCard]}>
+          <Text style={styles.infoTitle}>My Info</Text>
           {[
-            { lbl: "Session Type", val: "General Classroom Communication" },
-            { lbl: "Username", val: user?.username ?? "—" },
-            { lbl: "Department", val: user?.department ?? "—" },
+            { icon: "👤", lbl: "Name",       val: displayName },
+            { icon: "🏷", lbl: "Username",   val: user?.username ?? "—" },
+            { icon: "📚", lbl: "Department", val: user?.department ?? "—" },
           ].map((r, i) => (
             <View key={i} style={styles.infoRow}>
+              <Text style={styles.infoIcon}>{r.icon}</Text>
               <Text style={styles.infoLbl}>{r.lbl}</Text>
               <Text style={styles.infoVal}>{r.val}</Text>
             </View>
           ))}
-        </Card>
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { padding: Spacing.lg, gap: 14, paddingBottom: 32 },
+  safe:   { flex: 1, backgroundColor: C.bg },
+  scroll: { paddingBottom: 40 },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: C.gray2,
-    backgroundColor: C.white,
+  // ── Hero ──
+  hero: {
+    padding: Spacing.xl, paddingTop: Spacing.xxl, paddingBottom: Spacing.xxl,
   },
-  headerTitle: { fontSize: FontSize.base, fontWeight: "600", color: C.text },
-  headerSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 1 },
+  heroGreeting: { fontSize: FontSize.base, color: "rgba(255,255,255,0.6)", fontWeight: "500", marginTop: 4 },
+  heroName:     { fontSize: FontSize.xxl, color: "#FFFFFF", fontWeight: "800", letterSpacing: -1, marginTop: 4 },
+  heroSub:      { fontSize: FontSize.sm,  color: "rgba(255,255,255,0.5)", marginTop: 8, fontWeight: "500" },
 
+  // ── Teacher reply ──
   replyBanner: {
-    backgroundColor: C.tealLight,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: C.tealBorder,
+    flexDirection: "row", alignItems: "flex-start", gap: 12,
+    margin: Spacing.lg, padding: Spacing.lg,
+    backgroundColor: C.tealLight, borderRadius: Radius.lg,
+    borderWidth: 2, borderColor: C.tealBorder, ...Shadow.sm,
   },
-  replyLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: "600",
-    color: C.teal,
-    marginBottom: 2,
-  },
-  replyText: { fontSize: FontSize.sm, color: C.text, fontWeight: "500" },
+  replyIcon:  { fontSize: 28 },
+  replyLabel: { fontSize: FontSize.xs, fontWeight: "700", color: C.tealMid, marginBottom: 4 },
+  replyText:  { fontSize: FontSize.md, color: C.text, fontWeight: "600" },
 
-  card: {},
-  cardHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  cardTitle: { fontSize: FontSize.base, fontWeight: "600", color: C.text },
-  cardSub: { fontSize: FontSize.xs, color: C.purple, fontWeight: "600" },
+  // ── Sections ──
+  section:     { padding: Spacing.lg, gap: 14 },
+  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  sectionTitle:{ fontSize: FontSize.lg, fontWeight: "800", color: C.text, letterSpacing: -0.5 },
+  seeAllBtn:   { backgroundColor: C.purpleLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
+  seeAllText:  { fontSize: FontSize.sm, color: C.purple, fontWeight: "700" },
 
-  iconGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    justifyContent: "space-between",
+  // ── Quick icon grid ──
+  quickGrid: {
+    flexDirection: "row", flexWrap: "wrap", gap: 14, justifyContent: "space-around",
+    backgroundColor: C.white, borderRadius: Radius.lg, padding: Spacing.lg,
+    borderWidth: 1, borderColor: C.gray2, ...Shadow.sm,
   },
 
-  ctaRow: { gap: 8 },
-  ctaBtn: {
-    backgroundColor: C.white,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: C.gray2,
-    ...Shadow.sm,
+  // ── CTA buttons ──
+  ctaList: { gap: 10 },
+  ctaCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    backgroundColor: C.white, borderRadius: Radius.lg, padding: Spacing.lg,
+    borderWidth: 1, borderColor: C.gray2, minHeight: 72, ...Shadow.sm,
   },
-  ctaText: { fontSize: FontSize.base, color: C.text, fontWeight: "500" },
+  ctaEmoji: { fontSize: 28 },
+  ctaLabel: { fontSize: FontSize.md, fontWeight: "700", color: C.text },
+  ctaSub:   { fontSize: FontSize.xs, color: C.text3, marginTop: 2, fontWeight: "500" },
+  ctaArrow: { fontSize: 28, fontWeight: "300" },
 
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
+  // ── Info card ──
+  infoCard: {
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.lg,
+    backgroundColor: C.white, borderRadius: Radius.lg, padding: Spacing.lg,
+    borderWidth: 1, borderColor: C.gray2, ...Shadow.sm,
   },
-  infoLbl: { fontSize: FontSize.sm, color: C.text3 },
-  infoVal: { fontSize: FontSize.sm, color: C.text, fontWeight: "500" },
-});
-
-const logoStyles = StyleSheet.create({
-  wrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(26,173,220,0.1)",
-    borderWidth: 1.5,
-    borderColor: "rgba(26,173,220,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  outer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "#1AADDC",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  middle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#1AADDC",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#1AADDC",
-  },
+  infoTitle: { fontSize: FontSize.md, fontWeight: "700", color: C.text, marginBottom: 12 },
+  infoRow:   { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.gray },
+  infoIcon:  { fontSize: 20 },
+  infoLbl:   { fontSize: FontSize.sm, color: C.text3, flex: 1, fontWeight: "500" },
+  infoVal:   { fontSize: FontSize.sm, color: C.text, fontWeight: "700" },
 });
 
 export default Home;

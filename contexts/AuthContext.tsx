@@ -14,6 +14,7 @@ export type User = {
   disability_type?: string;
   first_name?: string;
   last_name?: string;
+  teacher_name?: string;
 };
 
 interface AuthContextType {

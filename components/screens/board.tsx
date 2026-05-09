@@ -1,35 +1,41 @@
 import React, { useState } from "react";
 import {
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  Dimensions, ScrollView, StyleSheet,
+  Text, TouchableOpacity, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import axios from "axios";
+import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
+import axios from "axios";
 
 import { AAC_ICONS } from "../../constants/mockdata";
 import { API_BASE_URL } from "../../constants/api";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  Colors as C,
-  FontSize,
-  Radius,
-  Shadow,
-  Spacing,
-} from "../../constants/tokens";
+import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 import type { AACCategory, AACIcon } from "../../constants/types";
-import { Button, IconPill } from "../ui/shared";
 
-const CATEGORIES: { id: AACCategory; label: string; emoji: string }[] = [
-  { id: "all", label: "All", emoji: "📋" },
-  { id: "needs", label: "Needs", emoji: "💧" },
-  { id: "emotions", label: "Emotions", emoji: "😊" },
-  { id: "classroom", label: "Classroom", emoji: "📖" },
-  { id: "actions", label: "Actions", emoji: "✅" },
+// ── Grid math ─────────────────────────────────────────────────────────────────
+const { width: SW } = Dimensions.get("window");
+const PAD      = 16;
+const GAP      = 10;
+const COLS     = 3;
+const CELL     = Math.floor((SW - PAD * 2 - GAP * (COLS - 1)) / COLS);
+const EMOJI_SZ = Math.floor(CELL * 0.40);
+
+// Chunk array into rows of N
+function chunk<T>(arr: T[], n: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) rows.push(arr.slice(i, i + n));
+  return rows;
+}
+
+// ── Category config ────────────────────────────────────────────────────────────
+const CATEGORIES: { id: AACCategory; label: string; emoji: string; color: string }[] = [
+  { id: "all",       label: "All",      emoji: "📋", color: "#475569" },
+  { id: "needs",     label: "Needs",    emoji: "💧", color: "#0EA5E9" },
+  { id: "emotions",  label: "Feelings", emoji: "😊", color: "#EC4899" },
+  { id: "classroom", label: "Class",    emoji: "📖", color: "#8B5CF6" },
+  { id: "actions",   label: "Actions",  emoji: "✅", color: "#22C55E" },
 ];
 
 interface AACBoardProps {
@@ -39,24 +45,32 @@ interface AACBoardProps {
 const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   const { token } = useAuth();
   const [category, setCategory] = useState<AACCategory>("all");
-  const [selected, setSelected] = useState<AACIcon[]>([]);
-  const [speaking, setSpeaking] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [selected, setSelected]  = useState<AACIcon[]>([]);
+  const [speaking, setSpeaking]  = useState(false);
+  const [sent, setSent]          = useState(false);
 
-  const filtered =
-    category === "all"
-      ? AAC_ICONS
-      : AAC_ICONS.filter((i) => i.category === category);
+  const filtered = category === "all"
+    ? AAC_ICONS
+    : AAC_ICONS.filter(i => i.category === category);
 
-  const messageText = selected.map((i) => i.label).join(" ");
+  const rows = chunk(filtered, COLS);
+  const messageText = selected.map(i => i.label).join(" ");
+
+  const handleIconPress = (icon: AACIcon) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelected(prev => [...prev, icon]);
+    axios.post(`${API_BASE_URL}/logs/`,
+      { icon_id: icon.id, icon_label: icon.label },
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).catch(() => {});
+  };
 
   const handleSpeak = () => {
     if (!selected.length) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSpeaking(true);
     Speech.speak(messageText, {
-      language: "en",
-      pitch: 1.0,
-      rate: 0.9,
+      language: "en", pitch: 1.0, rate: 0.85,
       onDone: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
@@ -64,216 +78,215 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
 
   const handleSend = () => {
     if (!selected.length) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onSendToTeacher?.(messageText);
-    // Log the full composed message to FastAPI
-    axios.post(
-      `${API_BASE_URL}/logs/`,
+    axios.post(`${API_BASE_URL}/logs/`,
       { icon_id: "message", icon_label: messageText, message: messageText },
       { headers: { Authorization: `Bearer ${token}` } }
     ).catch(() => {});
     setSent(true);
-    setTimeout(() => {
-      setSent(false);
-      setSelected([]);
-    }, 2000);
-  };
-
-  const handleIconPress = (icon: AACIcon) => {
-    setSelected((prev) => [...prev, icon]);
-    // Log the tap to FastAPI (fire and forget)
-    axios.post(
-      `${API_BASE_URL}/logs/`,
-      { icon_id: icon.id, icon_label: icon.label },
-      { headers: { Authorization: `Bearer ${token}` } }
-    ).catch(() => {}); // silently ignore if offline
-  };
-
-  const removeIcon = (index: number) => {
-    setSelected((prev) => prev.filter((_, i) => i !== index));
+    setTimeout(() => { setSent(false); setSelected([]); }, 2000);
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>AAC Board</Text>
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <Text style={s.headerTitle}>AAC Board</Text>
         {selected.length > 0 && (
-          <TouchableOpacity onPress={() => setSelected([])}>
-            <Text style={styles.clearBtn}>Clear</Text>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setSelected([]); }}
+            style={s.clearBtn}
+          >
+            <Text style={s.clearBtnText}>✕ Clear</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Message builder bar */}
-      <View style={styles.builderWrap}>
+      {/* ── Message builder ── */}
+      <View style={s.builder}>
         {selected.length === 0 ? (
-          <Text style={styles.builderPlaceholder}>
-            Tap icons below to build your message...
-          </Text>
+          <View style={s.builderEmpty}>
+            <Text style={s.builderEmptyEmoji}>👆</Text>
+            <Text style={s.builderEmptyText}>Tap icons to build your message</Text>
+          </View>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.builderScroll}
-          >
-            {selected.map((icon, i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => removeIcon(i)}
-                style={styles.builderChip}
-              >
-                <Text style={styles.builderEmoji}>{icon.emoji}</Text>
-                <Text style={styles.builderLabel}>{icon.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
+              {selected.map((icon, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelected(prev => prev.filter((_, idx) => idx !== i));
+                  }}
+                  style={s.chip}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.chipEmoji}>{icon.emoji}</Text>
+                  <Text style={s.chipLabel}>{icon.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={s.messagePreview} numberOfLines={1}>"{messageText}"</Text>
+          </>
         )}
       </View>
 
-      {/* Category tabs */}
+      {/* ── Category tabs ── */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.catScroll}
-        style={styles.catWrap}
+        horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.catRow} style={s.catWrap}
       >
-        {CATEGORIES.map((cat) => {
-          const isActive = category === cat.id;
+        {CATEGORIES.map(cat => {
+          const active = category === cat.id;
           return (
             <TouchableOpacity
               key={cat.id}
-              onPress={() => setCategory(cat.id)}
-              style={[styles.catTab, isActive && styles.catTabActive]}
+              onPress={() => { Haptics.selectionAsync(); setCategory(cat.id); }}
+              activeOpacity={0.8}
+              style={[s.catTab, active && { backgroundColor: cat.color, borderColor: cat.color }]}
             >
-              <Text style={{ fontSize: 14 }}>{cat.emoji}</Text>
-              <Text
-                style={[styles.catLabel, isActive && styles.catLabelActive]}
-              >
-                {cat.label}
-              </Text>
+              <Text style={s.catEmoji}>{cat.emoji}</Text>
+              <Text style={[s.catLabel, active && s.catLabelActive]}>{cat.label}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Icon grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        numColumns={4}
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={styles.gridCell}>
-            <IconPill
-              emoji={item.emoji}
-              label={item.label}
-              bg={item.bg}
-              size="md"
-              onPress={() => handleIconPress(item)}
-            />
+      {/* ── Icon grid — manual rows for perfect alignment ── */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.grid}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={s.row}>
+            {row.map(icon => (
+              <TouchableOpacity
+                key={icon.id}
+                onPress={() => handleIconPress(icon)}
+                activeOpacity={0.75}
+                style={[s.cell, { backgroundColor: icon.bg }]}
+              >
+                <Text style={s.cellEmoji}>{icon.emoji}</Text>
+                <Text style={s.cellLabel} numberOfLines={1}>{icon.label}</Text>
+              </TouchableOpacity>
+            ))}
+            {/* Fill empty cells in last row */}
+            {row.length < COLS && Array.from({ length: COLS - row.length }).map((_, i) => (
+              <View key={`empty-${i}`} style={s.cellEmpty} />
+            ))}
           </View>
-        )}
-      />
+        ))}
+      </ScrollView>
 
-      {/* Action buttons */}
-      <View style={styles.actions}>
-        <Button
-          variant="outline"
+      {/* ── Action buttons ── */}
+      <View style={s.actions}>
+        <TouchableOpacity
           onPress={handleSpeak}
-          disabled={!selected.length}
-          style={{ flex: 1 }}
+          disabled={!selected.length || speaking}
+          activeOpacity={0.85}
+          style={[s.actionBtn, s.speakBtn, (!selected.length || speaking) && s.btnDisabled]}
         >
-          {speaking ? "🔊 Speaking..." : "🔊 Speak"}
-        </Button>
-        <Button
-          variant="primary"
+          <Text style={s.actionEmoji}>🔊</Text>
+          <Text style={s.actionText}>{speaking ? "Speaking..." : "Speak"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={handleSend}
           disabled={!selected.length}
-          style={{ flex: 1 }}
+          activeOpacity={0.85}
+          style={[s.actionBtn, s.sendBtn, !selected.length && s.btnDisabled]}
         >
-          {sent ? "✓ Sent!" : "📤 Send to teacher"}
-        </Button>
+          <Text style={s.actionEmoji}>{sent ? "✅" : "📤"}</Text>
+          <Text style={s.actionText}>{sent ? "Sent!" : "Send"}</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
 
+  // Header
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: PAD, paddingVertical: 12,
+    backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.gray2,
   },
-  headerTitle: { fontSize: FontSize.md, fontWeight: "700", color: C.text },
-  clearBtn: { fontSize: FontSize.sm, color: C.redDark, fontWeight: "600" },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: "800", color: C.text },
+  clearBtn: {
+    backgroundColor: C.redLight, paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: Radius.full, borderWidth: 1, borderColor: "#FCA5A5",
+  },
+  clearBtnText: { fontSize: FontSize.sm, color: C.redDark, fontWeight: "700" },
 
-  builderWrap: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-    minHeight: 60,
-    backgroundColor: C.white,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: C.gray2,
-    padding: Spacing.sm,
-    justifyContent: "center",
-    ...Shadow.sm,
+  // Builder
+  builder: {
+    marginHorizontal: PAD, marginVertical: 10,
+    minHeight: 88, backgroundColor: C.white,
+    borderRadius: Radius.lg, borderWidth: 2, borderColor: C.gray2,
+    padding: 12, justifyContent: "center", ...Shadow.sm,
   },
-  builderPlaceholder: {
-    fontSize: FontSize.sm,
-    color: C.text3,
-    textAlign: "center",
+  builderEmpty: { alignItems: "center", gap: 4 },
+  builderEmptyEmoji: { fontSize: 26 },
+  builderEmptyText: { fontSize: FontSize.sm, color: C.text3, fontWeight: "500" },
+  chipRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  chip: {
+    backgroundColor: C.purpleLight, borderRadius: Radius.md,
+    paddingHorizontal: 12, paddingVertical: 8,
+    alignItems: "center", gap: 4,
+    borderWidth: 1.5, borderColor: C.purpleMid, minWidth: 56,
   },
-  builderScroll: {
-    flexDirection: "row",
-    gap: 6,
-    alignItems: "center",
-    paddingVertical: 4,
+  chipEmoji: { fontSize: 22 },
+  chipLabel: { fontSize: FontSize.xs, color: C.purple, fontWeight: "700" },
+  messagePreview: {
+    marginTop: 6, fontSize: FontSize.sm,
+    color: C.text2, fontWeight: "600", fontStyle: "italic",
   },
-  builderChip: {
-    backgroundColor: C.purpleLight,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignItems: "center",
-    gap: 2,
-  },
-  builderEmoji: { fontSize: 18 },
-  builderLabel: { fontSize: FontSize.xs, color: C.purple, fontWeight: "600" },
 
-  catWrap: { maxHeight: 52, flexGrow: 0 },
-  catScroll: { paddingHorizontal: Spacing.lg, gap: 6, alignItems: "center" },
+  // Category
+  catWrap: { maxHeight: 58, flexGrow: 0 },
+  catRow: { paddingHorizontal: PAD, gap: 8, alignItems: "center", paddingVertical: 8 },
   catTab: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: C.gray2,
-    backgroundColor: C.white,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: Radius.full, borderWidth: 2, borderColor: C.gray2,
+    backgroundColor: C.white, minHeight: 44,
   },
-  catTabActive: { backgroundColor: C.purpleLight, borderColor: C.purple },
-  catLabel: { fontSize: FontSize.xs, color: C.text2, fontWeight: "500" },
-  catLabelActive: { color: C.purple, fontWeight: "600" },
+  catEmoji: { fontSize: 16 },
+  catLabel: { fontSize: FontSize.sm, color: C.text2, fontWeight: "600" },
+  catLabelActive: { color: C.white, fontWeight: "700" },
 
-  grid: { padding: Spacing.md, gap: 10 },
-  gridCell: { flex: 1, alignItems: "center", paddingVertical: 4 },
+  // Grid
+  grid: { padding: PAD, paddingBottom: 20 },
+  row: { flexDirection: "row", gap: GAP, marginBottom: GAP },
+  cell: {
+    width: CELL, height: CELL + 30,
+    borderRadius: Radius.lg, alignItems: "center", justifyContent: "center",
+    gap: 8, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)", ...Shadow.sm,
+  },
+  cellEmpty: { width: CELL },
+  cellEmoji: { fontSize: EMOJI_SZ },
+  cellLabel: {
+    fontSize: FontSize.sm, fontWeight: "700", color: C.text,
+    textAlign: "center", paddingHorizontal: 4, width: CELL - 8,
+  },
 
+  // Actions
   actions: {
-    flexDirection: "row",
-    gap: 10,
-    padding: Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: C.gray2,
-    backgroundColor: C.white,
+    flexDirection: "row", gap: 12, padding: PAD,
+    borderTopWidth: 1, borderTopColor: C.gray2, backgroundColor: C.white,
   },
+  actionBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 18, borderRadius: Radius.lg,
+    minHeight: 62, ...Shadow.md,
+  },
+  speakBtn:   { backgroundColor: "#0F172A" },
+  sendBtn:    { backgroundColor: C.teal    },
+  btnDisabled:{ opacity: 0.4               },
+  actionEmoji:{ fontSize: 22               },
+  actionText: { fontSize: FontSize.md, fontWeight: "800", color: C.white },
 });
 
 export default AACBoard;
