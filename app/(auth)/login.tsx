@@ -45,6 +45,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -119,13 +120,22 @@ export default function LoginScreen() {
             />
 
             <Text style={fallbackStyles.label}>Password</Text>
-            <TextInput
-              style={fallbackStyles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••••"
-              secureTextEntry
-            />
+            <View style={fallbackStyles.inputWrap}>
+              <TextInput
+                style={fallbackStyles.inputInner}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••••"
+                secureTextEntry={!showPass}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPass(!showPass)}
+                style={fallbackStyles.eyeBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={fallbackStyles.eyeText}>{showPass ? "🙈" : "👁"}</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.optionsRow}>
               <TouchableOpacity
@@ -197,6 +207,26 @@ const fallbackStyles = StyleSheet.create({
     color: "#111827",
     marginBottom: 8,
   },
+  inputWrap: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  inputInner: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: "#111827",
+  },
+  eyeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  eyeText: { fontSize: 20 },
   button: {
     backgroundColor: "#1AADDC",
     padding: 16,
