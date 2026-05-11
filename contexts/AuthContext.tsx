@@ -5,17 +5,27 @@ import { API_BASE_URL } from '../constants/api';
 
 const TOKEN_KEY = 'auth_token';
 
-export type User = {
-  id?: number;
-  email?: string;
-  username?: string;
-  department?: string;
-  status?: string;
-  disability_type?: string;
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  status: "STUDENT" | "TEACHER"; 
   first_name?: string;
   last_name?: string;
-  teacher_name?: string;
-};
+  bio?: string;
+  
+  // Student Specific
+  grade_level?: string;
+  disability_type?: string;
+
+  // Teacher Specific
+  display_name?: string;
+  contact_number?: string;
+  room_section?: string;
+  department?: string;
+  grade_handled?: string;
+  organization?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -80,7 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       setUser(profileRes.data);
     } catch {
-      setUser({ username: identifier });
+      setUser((prevUser) => prevUser ? { ...prevUser, username: "new_username" } : null);
     }
   };
 

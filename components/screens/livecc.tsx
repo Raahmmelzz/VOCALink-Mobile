@@ -1,18 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, AppState } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
-import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
-import {
-  Colors as C,
-  FontSize,
-  Radius,
-  Shadow,
-  Spacing,
-} from "../../constants/tokens";
-import { Badge } from "../ui/shared";
+import { Colors as C, FontSize, Spacing } from "../../constants/tokens";
 
 interface CCLine {
   id: number;
@@ -24,147 +15,154 @@ interface CCLine {
 const LiveCC: React.FC = () => {
   const { token, user } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
-  const lastIdRef = useRef<number>(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+  
   const [lines, setLines] = useState<CCLine[]>([]);
   const [connected, setConnected] = useState(false);
-  const teacherName = user?.teacher_name || "";
+  const teacherName = (user as any)?.teacher_name || "Teacher";
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!token) return;
+  useEffect(() => {
+    if (!token) return;
 
-      const poll = async () => {
+    let ws: WebSocket;
+    let reconnectTimer: NodeJS.Timeout;
+
+    const connectWebSocket = () => {
+      // Bulletproof HTTP to WS conversion
+      const wsUrl = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "/ws/cc");
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws.send(token); 
+        setConnected(true);
+      };
+
+      ws.onmessage = (event) => {
         try {
-          const res = await axios.get(
-            `${API_BASE_URL}/cc/messages/?since=${lastIdRef.current}`,
-            { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 }
-          );
-          const newMsgs: CCLine[] = res.data;
-          if (newMsgs.length > 0) {
-            lastIdRef.current = newMsgs[newMsgs.length - 1].id;
-            setLines(prev => [...prev, ...newMsgs]);
-            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-          }
-          setConnected(true);
-        } catch {
-          setConnected(false);
+          const data = JSON.parse(event.data);
+          const newLine: CCLine = {
+            id: Date.now(), 
+            text: data.text,
+            speaker: data.speaker,
+            time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+          
+          setLines((prev) => [...prev, newLine]);
+        } catch (e) {
+          console.log("Error parsing websocket message");
         }
       };
 
-      // Poll immediately then every 4 seconds
-      poll();
-      intervalRef.current = setInterval(poll, 4000);
-
-      // Stop polling when tab loses focus
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+      ws.onclose = () => {
+        setConnected(false);
+        // Auto-reconnect after 3 seconds if it drops
+        reconnectTimer = setTimeout(connectWebSocket, 3000);
       };
-    }, [token])
-  );
+
+      ws.onerror = () => {
+        setConnected(false);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (ws) ws.close();
+    };
+  }, [token]);
+
+  // G-Meet Style: Only show the most recent 6 lines to keep it clean
+  const visibleLines = lines.slice(-6);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Header */}
+      {/* Dark minimalist header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Live Closed Captions</Text>
+          <Text style={styles.headerTitle}>Live Captions</Text>
           <Text style={styles.headerSub}>
-            {teacherName ? `👩‍🏫 ${teacherName}` : "Teacher's speech appears here in real time"}
+            {connected ? `● Live from ${teacherName}` : "○ Reconnecting to class..."}
           </Text>
         </View>
-        <Badge color={connected ? "teal" : "gray"}>
-          {connected ? "Live" : "Connecting..."}
-        </Badge>
       </View>
 
-      {/* CC feed */}
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.feed}
-        showsVerticalScrollIndicator={false}
-      >
-        {lines.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>
-              Waiting for teacher to speak...
-            </Text>
-          </View>
-        ) : (
-          lines.map((line, i) => {
-            const isTeacher = line.speaker === "teacher";
-            const isLatest = i === lines.length - 1;
-            return (
-              <View
-                key={line.id}
-                style={[
-                  styles.ccCard,
-                  isTeacher ? styles.ccCardTeacher : styles.ccCardReply,
-                  isLatest && styles.ccCardLatest,
-                ]}
-              >
-                <View style={styles.ccTop}>
-                  <Text style={[styles.ccSpeaker, isTeacher ? styles.ccSpeakerTeacher : styles.ccSpeakerReply]}>
-                    {isTeacher ? "👩‍🏫 Teacher" : "✉️ Reply"}
+      {/* G-Meet Style Captions Area */}
+      <View style={styles.ccContainer}>
+        <ScrollView 
+          ref={scrollRef} 
+          contentContainerStyle={styles.feed} 
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        >
+          {visibleLines.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>Waiting for {teacherName} to speak...</Text>
+            </View>
+          ) : (
+            visibleLines.map((line, i) => {
+              const isLatest = i === visibleLines.length - 1;
+              // Fade out older messages just like G-Meet
+              const opacity = isLatest ? 1 : 0.4 + (i / visibleLines.length) * 0.4;
+              
+              return (
+                <View key={line.id} style={[styles.ccRow, { opacity }]}>
+                  {isLatest && <View style={styles.activeIndicator} />}
+                  <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
+                    {line.text}
                   </Text>
-                  <Text style={styles.ccTime}>{line.time}</Text>
                 </View>
-                <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
-                  {line.text}
-                </Text>
-              </View>
-            );
-          })
-        )}
-
-        <View style={styles.liveRow}>
-          <View style={[styles.liveDot, connected && styles.liveDotActive]} />
-          <Text style={styles.liveText}>
-            {connected ? "Connected — updates every 2s" : "Reconnecting..."}
-          </Text>
-        </View>
-      </ScrollView>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          📱 Captions auto-scroll as your teacher speaks.
-        </Text>
+              );
+            })
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  header: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-    padding: Spacing.lg, paddingBottom: Spacing.md,
-    borderBottomWidth: 1, borderBottomColor: C.gray2, backgroundColor: C.white,
+  // G-Meet uses a dark background for focus
+  safe: { flex: 1, backgroundColor: "#202124" }, 
+  header: { 
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", 
+    padding: Spacing.lg, paddingBottom: Spacing.md, 
+    borderBottomWidth: 1, borderBottomColor: "#3C4043", backgroundColor: "#202124" 
   },
-  headerTitle: { fontSize: FontSize.md, fontWeight: "700", color: C.text },
-  headerSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 2 },
-  feed: { padding: Spacing.lg, gap: 10, paddingBottom: 16 },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: "700", color: "#FFFFFF" },
+  headerSub: { fontSize: FontSize.sm, color: "#9AA0A6", marginTop: 4, fontWeight: "600" },
+  
+  ccContainer: {
+    flex: 1,
+    justifyContent: "flex-end", // Pushes captions to the bottom
+    paddingBottom: 40,
+  },
+  feed: { padding: Spacing.lg, gap: 16, justifyContent: "flex-end", flexGrow: 1 },
   emptyWrap: { alignItems: "center", marginTop: 60 },
-  emptyText: { fontSize: FontSize.sm, color: C.text3 },
-  ccCard: { borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, ...Shadow.sm },
-  ccCardTeacher: { backgroundColor: C.tealLight, borderColor: C.tealBorder },
-  ccCardReply: { backgroundColor: C.gray, borderColor: C.gray2 },
-  ccCardLatest: { borderWidth: 2, borderColor: C.teal, ...Shadow.md },
-  ccTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
-  ccSpeaker: { fontSize: FontSize.xs, fontWeight: "600" },
-  ccSpeakerTeacher: { color: C.teal },
-  ccSpeakerReply: { color: C.text3 },
-  ccTime: { fontSize: FontSize.xs, color: C.text3 },
-  ccText: { fontSize: FontSize.base, color: C.text2, lineHeight: 22 },
-  ccTextLatest: { color: C.text, fontWeight: "500", fontSize: FontSize.md },
-  liveRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: Spacing.sm },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.gray2 },
-  liveDotActive: { backgroundColor: C.tealMid },
-  liveText: { fontSize: FontSize.xs, color: C.text3 },
-  footer: { padding: Spacing.md, borderTopWidth: 1, borderTopColor: C.gray2, backgroundColor: C.white },
-  footerText: { fontSize: FontSize.xs, color: C.text3, textAlign: "center", lineHeight: 16 },
+  emptyText: { fontSize: FontSize.md, color: "#9AA0A6", fontStyle: "italic" },
+  
+  ccRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingLeft: 10,
+  },
+  activeIndicator: {
+    width: 4,
+    height: "100%",
+    backgroundColor: "#8AB4F8", // Google Blue
+    position: "absolute",
+    left: -2,
+    borderRadius: 2,
+  },
+  ccText: { 
+    fontSize: 24, // Large text for readability
+    color: "#E8EAED", 
+    lineHeight: 32,
+    fontWeight: "500",
+  },
+  ccTextLatest: { 
+    color: "#FFFFFF", 
+    fontWeight: "700", 
+  },
 });
 
 export default LiveCC;

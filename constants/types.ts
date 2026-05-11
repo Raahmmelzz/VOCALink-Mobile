@@ -39,3 +39,26 @@ export interface CCLine {
   time: string;
   speaker: "teacher" | "reply";
 }
+
+// 💥 Added the User interface here to match FastAPI
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  status: "STUDENT" | "TEACHER"; 
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  
+  // Student Specific
+  grade_level?: string;
+  disability_type?: string;
+
+  // Teacher Specific
+  display_name?: string;
+  contact_number?: string;
+  room_section?: string;
+  department?: string;
+  grade_handled?: string;
+  organization?: string;
+}
