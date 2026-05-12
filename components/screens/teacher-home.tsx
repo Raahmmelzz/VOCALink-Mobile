@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -18,8 +18,36 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // ✅ FIX: Track whether we've checked the server yet so we don't flash wrong UI
+  const [checking, setChecking] = useState(true);
 
   const displayName = user?.first_name || user?.username || "Teacher";
+
+  // ✅ FIX: On mount, restore session state from the server.
+  // Before this fix, navigating away and back reset isSessionActive to false
+  // even if a session was still running on the backend.
+  useEffect(() => {
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+    const restoreSession = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/sessions/teacher`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setIsSessionActive(res.data.active);
+        setSessionCode(res.data.session_code ?? null);
+      } catch (e) {
+        // If the check fails, assume no active session — safe default
+        setIsSessionActive(false);
+        setSessionCode(null);
+      } finally {
+        setChecking(false);
+      }
+    };
+    restoreSession();
+  }, [token]);
 
   const executeToggle = async () => {
     setLoading(true);
@@ -27,15 +55,14 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
       const res = await axios.post(`${API_BASE_URL}/sessions/toggle`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       setIsSessionActive(res.data.active);
       setSessionCode(res.data.session_code);
 
-      // 💥 THE MAGIC FIX: If the session just turned ON, teleport them to the chat room!
+      // If the session just turned ON, navigate to the live room
       if (res.data.active) {
-          setActive("teacher-livecc");
+        setActive("teacher-livecc");
       }
-
     } catch (error) {
       Alert.alert("Error", "Could not toggle the session. Check connection.");
     } finally {
@@ -45,9 +72,8 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
 
   const handleToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    
+
     if (isSessionActive) {
-      // If it's active, they can either end it here or jump back into the room
       Alert.alert("Session in Progress", "What would you like to do?", [
         { text: "Cancel", style: "cancel" },
         { text: "End Class", style: "destructive", onPress: executeToggle },
@@ -57,6 +83,15 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
       executeToggle();
     }
   };
+
+  // Show a spinner while we're checking session state on mount
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: C.bg }}>
+        <ActivityIndicator size="large" color={C.teal} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -73,23 +108,23 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
           <Text style={styles.heroGreeting}>Welcome back,</Text>
           <Text style={styles.heroName}>Teacher {displayName} 🍎</Text>
           <Text style={styles.heroSub}>
-            {isSessionActive 
-              ? `Session Code: ${sessionCode}` 
+            {isSessionActive
+              ? `Session Code: ${sessionCode}`
               : "Start a session to connect with your students."}
           </Text>
         </LinearGradient>
 
         <View style={styles.section}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.startBtn, isSessionActive ? styles.startBtnActive : null]}
             onPress={handleToggle}
             activeOpacity={0.85}
             disabled={loading}
           >
             {loading ? (
-               <ActivityIndicator color="#fff" style={{ marginRight: 10 }} />
+              <ActivityIndicator color="#fff" style={{ marginRight: 10 }} />
             ) : (
-               <Text style={styles.startBtnEmoji}>{isSessionActive ? "🟢" : "🎙️"}</Text>
+              <Text style={styles.startBtnEmoji}>{isSessionActive ? "🟢" : "🎙️"}</Text>
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.startBtnLabel}>
@@ -105,31 +140,39 @@ const TeacherHome: React.FC<Props> = ({ setActive }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Classroom Tools</Text>
           <View style={styles.actionGrid}>
-            
-            <TouchableOpacity 
-              style={styles.toolCard} 
+
+            <TouchableOpacity
+              style={styles.toolCard}
               disabled={!isSessionActive}
-              onPress={() => setActive("teacher-livecc")} 
+              onPress={() => setActive("teacher-livecc")}
             >
-              <View style={[styles.toolIconWrap, { backgroundColor: C.tealLight }]}><Text style={styles.toolIcon}>📝</Text></View>
-              <Text style={styles.toolLabel}>Live CC</Text>
+              <View style={[styles.toolIconWrap, { backgroundColor: C.tealLight }]}>
+                <Text style={styles.toolIcon}>📝</Text>
+              </View>
+              <Text style={[styles.toolLabel, !isSessionActive && styles.toolLabelDisabled]}>Live CC</Text>
               <Text style={styles.toolSub}>Broadcast speech</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.toolCard}>
-              <View style={[styles.toolIconWrap, { backgroundColor: C.purpleLight }]}><Text style={styles.toolIcon}>👥</Text></View>
+              <View style={[styles.toolIconWrap, { backgroundColor: C.purpleLight }]}>
+                <Text style={styles.toolIcon}>👥</Text>
+              </View>
               <Text style={styles.toolLabel}>Students</Text>
               <Text style={styles.toolSub}>Manage roster</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.toolCard}>
-              <View style={[styles.toolIconWrap, { backgroundColor: "#FEF08A" }]}><Text style={styles.toolIcon}>💬</Text></View>
+            <TouchableOpacity style={styles.toolCard} onPress={() => setActive("messages")}>
+              <View style={[styles.toolIconWrap, { backgroundColor: "#FEF08A" }]}>
+                <Text style={styles.toolIcon}>💬</Text>
+              </View>
               <Text style={styles.toolLabel}>Inbox</Text>
               <Text style={styles.toolSub}>Direct messages</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.toolCard}>
-              <View style={[styles.toolIconWrap, { backgroundColor: "#FECACA" }]}><Text style={styles.toolIcon}>📊</Text></View>
+              <View style={[styles.toolIconWrap, { backgroundColor: "#FECACA" }]}>
+                <Text style={styles.toolIcon}>📊</Text>
+              </View>
               <Text style={styles.toolLabel}>Analytics</Text>
               <Text style={styles.toolSub}>AAC logs</Text>
             </TouchableOpacity>
@@ -161,6 +204,7 @@ const styles = StyleSheet.create({
   toolIconWrap: { width: 40, height: 40, borderRadius: Radius.md, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   toolIcon: { fontSize: 20 },
   toolLabel: { fontSize: FontSize.md, fontWeight: "700", color: C.text },
+  toolLabelDisabled: { color: C.text3 },
   toolSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 4 },
 });
 
