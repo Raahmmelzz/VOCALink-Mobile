@@ -1,15 +1,25 @@
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { useAuth } from "../../contexts/AuthContext";
+
+// Make sure these paths match your folder structure!
 import AACBoard from "../../components/screens/board";
 import Home from "../../components/screens/home";
+import TeacherHome from "../../components/screens/teacher-home";
+import TeacherLiveCC from "../../components/screens/teacher-livecc";
 import LiveCC from "../../components/screens/livecc";
 import Messages from "../../components/screens/messages";
-import ProfileUI from "../../components/screens/profile"; // 💥 1. Import your new UI
+import ProfileUI from "../../components/screens/profile";
 import BottomNav, { TabName } from "../../components/ui/BottomNav";
 import { Colors as C } from "../../constants/tokens";
 
-const TabsLayout: React.FC = () => {
-  const [active, setActive] = useState<TabName>("home");
+export type ExtendedTabName = TabName | "teacher-livecc";
+
+export default function TabsLayout() {
+  const { user } = useAuth();
+  const isTeacher = user?.status === "TEACHER";
+
+  const [active, setActive] = useState<ExtendedTabName>("home");
   const [teacherReply] = useState<string | null>("OK — I'll get some.");
   const [unread, setUnread] = useState(1);
 
@@ -18,6 +28,23 @@ const TabsLayout: React.FC = () => {
   };
 
   const renderScreen = () => {
+    // 👩‍🏫 TEACHER ROUTES
+    if (isTeacher) {
+      switch (active) {
+        case "home":
+          return <TeacherHome setActive={setActive} />;
+        case "teacher-livecc":
+          return <TeacherLiveCC setActive={setActive} />;
+        case "messages":
+          return <Messages />;
+        case "profile":
+          return <ProfileUI />;
+        default:
+          return <TeacherHome setActive={setActive} />;
+      }
+    }
+
+    // 🎓 STUDENT ROUTES
     switch (active) {
       case "home":
         return <Home setActive={setActive} teacherReply={teacherReply} />;
@@ -27,7 +54,7 @@ const TabsLayout: React.FC = () => {
         return <Messages />;
       case "livecc":
         return <LiveCC />;
-      case "profile": // 💥 2. Add the case for your new tab
+      case "profile":
         return <ProfileUI />;
       default:
         return null;
@@ -36,9 +63,12 @@ const TabsLayout: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* This renders whichever screen is currently active */}
       <View style={styles.screen}>{renderScreen()}</View>
+      
+      {/* This renders your bottom navigation bar */}
       <BottomNav
-        active={active}
+        active={active as TabName} 
         setActive={(tab) => {
           setActive(tab);
           if (tab === "messages") setUnread(0);
@@ -47,11 +77,9 @@ const TabsLayout: React.FC = () => {
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   screen: { flex: 1 },
 });
-
-export default TabsLayout;

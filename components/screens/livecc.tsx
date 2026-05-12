@@ -1,170 +1,407 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, AppState } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
-import {
-  Colors as C,
-  FontSize,
-  Radius,
-  Shadow,
-  Spacing,
-} from "../../constants/tokens";
-import { Badge } from "../ui/shared";
+import { Colors as C, FontSize, Radius, Spacing } from "../../constants/tokens";
 
 interface CCLine {
   id: number;
   text: string;
-  speaker: string;
+  speaker: string;   // "teacher" | "student"
   time: string;
+  isOwn?: boolean;   // true when this student sent it
 }
+
+// ✅ Quick-reply chips students can tap instead of typing
+const QUICK_REPLIES = [
+  "I need help ✋",
+  "I don't understand ❓",
+  "I am done 📖",
+  "Thank you 🙏",
+];
 
 const LiveCC: React.FC = () => {
   const { token, user } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
-  const lastIdRef = useRef<number>(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [lines, setLines] = useState<CCLine[]>([]);
   const [connected, setConnected] = useState(false);
-  const teacherName = user?.teacher_name || "";
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!token) return;
+  // ✅ FIX: Get teacher info from the profile endpoint so we can send replies
+  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const teacherName = (user as any)?.teacher_name || "Teacher";
 
-      const poll = async () => {
+  // Fetch profile once to get teacher_id for sending replies
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API_BASE_URL}/profile/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (res.data.teacher_id) setTeacherId(res.data.teacher_id);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  // ✅ FIX: This now connects to the same room_manager the teacher is in.
+  // The old code used the orphaned `manager` — students and teacher were in separate rooms.
+  useEffect(() => {
+    if (!token) return;
+
+    let ws: WebSocket;
+    let reconnectTimer: NodeJS.Timeout;
+
+    const connectWebSocket = () => {
+      const wsUrl = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "/ws/cc");
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws.send(token);
+        setConnected(true);
+      };
+
+      ws.onmessage = (event) => {
         try {
-          const res = await axios.get(
-            `${API_BASE_URL}/cc/messages/?since=${lastIdRef.current}`,
-            { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 }
-          );
-          const newMsgs: CCLine[] = res.data;
-          if (newMsgs.length > 0) {
-            lastIdRef.current = newMsgs[newMsgs.length - 1].id;
-            setLines(prev => [...prev, ...newMsgs]);
-            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+          const data = JSON.parse(event.data);
+
+          // Presence updates (user count) — no visible UI for student, just log
+          if (data.type === "presence") return;
+
+          if (data.type === "message") {
+            const newLine: CCLine = {
+              id: Date.now(),
+              text: data.text,
+              speaker: data.speaker,
+              time: data.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              // Mark as "own" if the student's own user_id sent it
+              isOwn: data.sender_id === (user as any)?.id,
+            };
+            setLines((prev) => [...prev, newLine]);
           }
-          setConnected(true);
-        } catch {
-          setConnected(false);
+        } catch (e) {
+          console.log("Error parsing websocket message");
         }
       };
 
-      // Poll immediately then every 4 seconds
-      poll();
-      intervalRef.current = setInterval(poll, 4000);
-
-      // Stop polling when tab loses focus
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
+      ws.onclose = () => {
+        setConnected(false);
+        reconnectTimer = setTimeout(connectWebSocket, 3000);
       };
-    }, [token])
-  );
+
+      ws.onerror = () => {
+        setConnected(false);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (ws) ws.close();
+    };
+  }, [token]);
+
+  // ✅ NEW: Student sends a reply to the teacher via the Messages API
+  const handleSend = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !teacherId) return;
+
+    setIsSending(true);
+    setInput("");
+
+    // Optimistically add to the local feed
+    const optimistic: CCLine = {
+      id: Date.now(),
+      text: trimmed,
+      speaker: "student",
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      isOwn: true,
+    };
+    setLines((prev) => [...prev, optimistic]);
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/messages/`,
+        { receiver_id: teacherId, text: trimmed, is_aac: false },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (e) {
+      console.error("Failed to send reply:", e);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // G-Meet style: show the last 6 teacher lines, plus all student replies below
+  const teacherLines = lines.filter((l) => l.speaker === "teacher").slice(-6);
+  const studentLines = lines.filter((l) => l.speaker !== "teacher");
+  const visibleLines = [...teacherLines, ...studentLines].sort((a, b) => a.id - b.id);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Live Closed Captions</Text>
-          <Text style={styles.headerSub}>
-            {teacherName ? `👩‍🏫 ${teacherName}` : "Teacher's speech appears here in real time"}
-          </Text>
-        </View>
-        <Badge color={connected ? "teal" : "gray"}>
-          {connected ? "Live" : "Connecting..."}
-        </Badge>
-      </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
 
-      {/* CC feed */}
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.feed}
-        showsVerticalScrollIndicator={false}
-      >
-        {lines.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>
-              Waiting for teacher to speak...
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Live Captions</Text>
+            <Text style={styles.headerSub}>
+              {connected ? `● Live from ${teacherName}` : "○ Reconnecting to class..."}
             </Text>
           </View>
-        ) : (
-          lines.map((line, i) => {
-            const isTeacher = line.speaker === "teacher";
-            const isLatest = i === lines.length - 1;
-            return (
-              <View
-                key={line.id}
-                style={[
-                  styles.ccCard,
-                  isTeacher ? styles.ccCardTeacher : styles.ccCardReply,
-                  isLatest && styles.ccCardLatest,
-                ]}
-              >
-                <View style={styles.ccTop}>
-                  <Text style={[styles.ccSpeaker, isTeacher ? styles.ccSpeakerTeacher : styles.ccSpeakerReply]}>
-                    {isTeacher ? "👩‍🏫 Teacher" : "✉️ Reply"}
-                  </Text>
-                  <Text style={styles.ccTime}>{line.time}</Text>
-                </View>
-                <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
-                  {line.text}
-                </Text>
-              </View>
-            );
-          })
-        )}
-
-        <View style={styles.liveRow}>
-          <View style={[styles.liveDot, connected && styles.liveDotActive]} />
-          <Text style={styles.liveText}>
-            {connected ? "Connected — updates every 2s" : "Reconnecting..."}
-          </Text>
         </View>
-      </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          📱 Captions auto-scroll as your teacher speaks.
-        </Text>
-      </View>
+        {/* Captions area */}
+        <View style={styles.ccContainer}>
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.feed}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          >
+            {visibleLines.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>Waiting for {teacherName} to speak...</Text>
+              </View>
+            ) : (
+              visibleLines.map((line, i) => {
+                const isTeacher = line.speaker === "teacher";
+                const isLatest = isTeacher && i === teacherLines.length - 1;
+                const opacity = isTeacher
+                  ? isLatest ? 1 : 0.4 + (i / Math.max(teacherLines.length, 1)) * 0.4
+                  : 1;
+
+                if (isTeacher) {
+                  // G-Meet style caption row
+                  return (
+                    <View key={line.id} style={[styles.ccRow, { opacity }]}>
+                      {isLatest && <View style={styles.activeIndicator} />}
+                      <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
+                        {line.text}
+                      </Text>
+                    </View>
+                  );
+                }
+
+                // ✅ Student reply bubble
+                return (
+                  <View key={line.id} style={[styles.replyRow, line.isOwn && styles.replyRowOwn]}>
+                    <View style={[styles.replyBubble, line.isOwn && styles.replyBubbleOwn]}>
+                      {!line.isOwn && (
+                        <Text style={styles.replySender}>🎓 Student</Text>
+                      )}
+                      <Text style={[styles.replyText, line.isOwn && styles.replyTextOwn]}>
+                        {line.text}
+                      </Text>
+                      <Text style={[styles.replyTime, line.isOwn && styles.replyTimeOwn]}>
+                        {line.time}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+
+        {/* ✅ NEW: Quick reply chips */}
+        <View style={styles.quickWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickRow}
+          >
+            {QUICK_REPLIES.map((q, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => handleSend(q)}
+                style={styles.quickChip}
+              >
+                <Text style={styles.quickChipText}>{q}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ✅ NEW: Reply input bar */}
+        <View style={styles.inputRow}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Reply to teacher..."
+            placeholderTextColor="#9AA0A6"
+            onSubmitEditing={() => handleSend(input)}
+            style={styles.input}
+            returnKeyType="send"
+          />
+          <TouchableOpacity
+            onPress={() => handleSend(input)}
+            disabled={!input.trim() || isSending || !teacherId}
+            style={[styles.sendBtn, (!input.trim() || isSending || !teacherId) && styles.sendBtnDisabled]}
+          >
+            <Text style={styles.sendBtnText}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
+  safe: { flex: 1, backgroundColor: "#202124" },
+
   header: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-    padding: Spacing.lg, paddingBottom: Spacing.md,
-    borderBottomWidth: 1, borderBottomColor: C.gray2, backgroundColor: C.white,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3C4043",
+    backgroundColor: "#202124",
   },
-  headerTitle: { fontSize: FontSize.md, fontWeight: "700", color: C.text },
-  headerSub: { fontSize: FontSize.xs, color: C.text3, marginTop: 2 },
-  feed: { padding: Spacing.lg, gap: 10, paddingBottom: 16 },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: "700", color: "#FFFFFF" },
+  headerSub: { fontSize: FontSize.sm, color: "#9AA0A6", marginTop: 4, fontWeight: "600" },
+
+  ccContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+  },
+  feed: { padding: Spacing.lg, gap: 12, justifyContent: "flex-end", flexGrow: 1 },
+
   emptyWrap: { alignItems: "center", marginTop: 60 },
-  emptyText: { fontSize: FontSize.sm, color: C.text3 },
-  ccCard: { borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, ...Shadow.sm },
-  ccCardTeacher: { backgroundColor: C.tealLight, borderColor: C.tealBorder },
-  ccCardReply: { backgroundColor: C.gray, borderColor: C.gray2 },
-  ccCardLatest: { borderWidth: 2, borderColor: C.teal, ...Shadow.md },
-  ccTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
-  ccSpeaker: { fontSize: FontSize.xs, fontWeight: "600" },
-  ccSpeakerTeacher: { color: C.teal },
-  ccSpeakerReply: { color: C.text3 },
-  ccTime: { fontSize: FontSize.xs, color: C.text3 },
-  ccText: { fontSize: FontSize.base, color: C.text2, lineHeight: 22 },
-  ccTextLatest: { color: C.text, fontWeight: "500", fontSize: FontSize.md },
-  liveRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: Spacing.sm },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.gray2 },
-  liveDotActive: { backgroundColor: C.tealMid },
-  liveText: { fontSize: FontSize.xs, color: C.text3 },
-  footer: { padding: Spacing.md, borderTopWidth: 1, borderTopColor: C.gray2, backgroundColor: C.white },
-  footerText: { fontSize: FontSize.xs, color: C.text3, textAlign: "center", lineHeight: 16 },
+  emptyText: { fontSize: FontSize.md, color: "#9AA0A6", fontStyle: "italic" },
+
+  // Teacher caption rows (G-Meet style)
+  ccRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingLeft: 10,
+  },
+  activeIndicator: {
+    width: 4,
+    height: "100%",
+    backgroundColor: "#8AB4F8",
+    position: "absolute",
+    left: -2,
+    borderRadius: 2,
+  },
+  ccText: {
+    fontSize: 24,
+    color: "#E8EAED",
+    lineHeight: 32,
+    fontWeight: "500",
+  },
+  ccTextLatest: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+  // ✅ Student reply bubbles
+  replyRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginTop: 4,
+  },
+  replyRowOwn: {
+    justifyContent: "flex-end",
+  },
+  replyBubble: {
+    maxWidth: "75%",
+    backgroundColor: "#2D2F31",
+    borderRadius: Radius.lg,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#3C4043",
+  },
+  replyBubbleOwn: {
+    backgroundColor: "#1A73E8",
+    borderColor: "#1A73E8",
+  },
+  replySender: {
+    fontSize: FontSize.xs,
+    color: "#9AA0A6",
+    marginBottom: 3,
+    fontWeight: "600",
+  },
+  replyText: {
+    fontSize: FontSize.base,
+    color: "#E8EAED",
+    lineHeight: 20,
+  },
+  replyTextOwn: { color: "#FFFFFF" },
+  replyTime: {
+    fontSize: 10,
+    color: "#9AA0A6",
+    marginTop: 4,
+  },
+  replyTimeOwn: { color: "rgba(255,255,255,0.6)" },
+
+  // Quick replies
+  quickWrap: {
+    maxHeight: 46,
+    borderTopWidth: 1,
+    borderTopColor: "#3C4043",
+    backgroundColor: "#2D2F31",
+  },
+  quickRow: {
+    paddingHorizontal: Spacing.md,
+    gap: 6,
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  quickChip: {
+    backgroundColor: "#3C4043",
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  quickChipText: { fontSize: FontSize.xs, color: "#E8EAED", fontWeight: "600" },
+
+  // Input bar
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: Spacing.md,
+    backgroundColor: "#2D2F31",
+    borderTopWidth: 1,
+    borderTopColor: "#3C4043",
+  },
+  input: {
+    flex: 1,
+    height: 42,
+    backgroundColor: "#3C4043",
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSize.base,
+    color: "#E8EAED",
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: Radius.md,
+    backgroundColor: "#1A73E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: { backgroundColor: "#3C4043" },
+  sendBtnText: { fontSize: FontSize.lg, color: "#FFFFFF", fontWeight: "700" },
 });
 
 export default LiveCC;

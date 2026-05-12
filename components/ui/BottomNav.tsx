@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext"; // 💥 Added useAuth import
 import { Colors as C, FontSize, Shadow } from "../../constants/tokens";
 
 export type TabName = "home" | "board" | "messages" | "livecc" | "profile";
@@ -11,9 +12,10 @@ interface TabItem {
   emoji: string;
 }
 
-const TABS: TabItem[] = [
-  { id: "home", label: "Home", emoji: "🏠" },
-  { id: "board", label: "AAC Board", emoji: "🗣" },
+// Renamed from TABS to ALL_TABS so we can filter it dynamically
+const ALL_TABS: TabItem[] = [
+  { id: "home", label: "Home", emoji: "🏠" },       // Replaced garbled characters with emojis
+  { id: "board", label: "AAC Board", emoji: "🗣️" },
   { id: "messages", label: "Messages", emoji: "💬" },
   { id: "livecc", label: "Live CC", emoji: "📝" },
   { id: "profile", label: "Profile", emoji: "👤" },
@@ -31,12 +33,23 @@ const BottomNav: React.FC<BottomNavProps> = ({
   unread = 0,
 }) => {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth(); // 💥 Grab the current user
+  
+  const isTeacher = user?.status === "TEACHER";
+
+  // 💥 Dynamically filter the tabs based on user status
+  const visibleTabs = ALL_TABS.filter((tab) => {
+    if (isTeacher && (tab.id === "board" || tab.id === "livecc")) {
+      return false; // Hide these from teachers
+    }
+    return true; // Show everything else
+  });
 
   return (
     <View
       style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
     >
-      {TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const isActive = active === tab.id;
         return (
           <TouchableOpacity
