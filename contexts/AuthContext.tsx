@@ -17,6 +17,8 @@ export interface User {
   // Student Specific
   grade_level?: string;
   disability_type?: string;
+  teacher_name?: string;
+  teacher_id?: number;
 
   // Teacher Specific
   display_name?: string;

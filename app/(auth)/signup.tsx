@@ -35,6 +35,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const handleSignup = async () => {
     if (!fullName || !username || !email || !password) {
@@ -121,13 +122,18 @@ export default function SignupScreen() {
             />
 
             <Text style={fallbackStyles.label}>Password</Text>
-            <TextInput
-              style={fallbackStyles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••••"
-              secureTextEntry
-            />
+            <View style={fallbackStyles.inputWrap}>
+              <TextInput
+                style={fallbackStyles.inputInner}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••••"
+                secureTextEntry={!showPass}
+              />
+              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={fallbackStyles.eyeBtn} activeOpacity={0.7}>
+                <Text style={fallbackStyles.eyeText}>{showPass ? "🙈" : "👁"}</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity 
               style={[fallbackStyles.button, loading && fallbackStyles.buttonDisabled]} 
@@ -154,6 +160,10 @@ export default function SignupScreen() {
 const fallbackStyles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
   input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
+  inputWrap: { flexDirection: 'row' as const, alignItems: 'center' as const, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, marginBottom: 8 },
+  inputInner: { flex: 1, padding: 16, fontSize: 16, color: '#111827' },
+  eyeBtn: { paddingHorizontal: 14, paddingVertical: 12 },
+  eyeText: { fontSize: 20 },
   button: { backgroundColor: '#1AADDC', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   buttonDisabled: { backgroundColor: '#9CA3AF' },
   buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },

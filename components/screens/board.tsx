@@ -43,7 +43,7 @@ interface AACBoardProps {
 }
 
 const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [category, setCategory] = useState<AACCategory>("all");
   const [selected, setSelected]  = useState<AACIcon[]>([]);
   const [speaking, setSpeaking]  = useState(false);
@@ -80,10 +80,23 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
     if (!selected.length) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onSendToTeacher?.(messageText);
+
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // Log the tap
     axios.post(`${API_BASE_URL}/logs/`,
       { icon_id: "message", icon_label: messageText, message: messageText },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers }
     ).catch(() => {});
+
+    // Also send as a direct message so teacher sees it in Messages page
+    if (user?.teacher_id) {
+      axios.post(`${API_BASE_URL}/messages/`,
+        { receiver_id: user.teacher_id, text: messageText, is_aac: true },
+        { headers }
+      ).catch(() => {});
+    }
+
     setSent(true);
     setTimeout(() => { setSent(false); setSelected([]); }, 2000);
   };
