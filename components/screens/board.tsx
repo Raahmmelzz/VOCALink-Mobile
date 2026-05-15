@@ -14,9 +14,10 @@ import { API_BASE_URL } from "../../constants/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 import type { AACCategory, AACIcon } from "../../constants/types";
+import { ScreenHeader } from "../ui/ScreenHeader";
 
 const PAD  = 16;
-const GAP  = 10;
+const GAP  = 14;
 const COLS = 3;
 
 // Chunk array into rows of N
@@ -105,17 +106,18 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
     <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
 
       {/* ── Header ── */}
-      <View style={s.header}>
-        <Text style={s.headerTitle}>AAC Board</Text>
-        {selected.length > 0 && (
+      <ScreenHeader
+        title="AAC Board"
+        subtitle="Tap icons to build your message"
+        right={selected.length > 0 ? (
           <TouchableOpacity
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setSelected([]); }}
             style={s.clearBtn}
           >
             <Text style={s.clearBtnText}>✕ Clear</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        ) : undefined}
+      />
 
       {/* ── Message builder ── */}
       <View style={s.builder}>
@@ -271,14 +273,15 @@ const s = StyleSheet.create({
 
   // Grid — cell dimensions are computed inline using CELL/EMOJI_SZ from useWindowDimensions
   grid: { padding: PAD, paddingBottom: 20 },
-  row: { flexDirection: "row", gap: GAP, marginBottom: GAP },
+  row: { flexDirection: "row", gap: 14, marginBottom: 14 },
   cellBase: {
-    borderRadius: Radius.lg, alignItems: "center", justifyContent: "center",
-    gap: 8, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)", ...Shadow.sm,
+    borderRadius: Radius.xl, alignItems: "center", justifyContent: "center",
+    gap: 10, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)",
+    paddingVertical: 14, paddingHorizontal: 8, ...Shadow.sm,
   },
   cellLabel: {
     fontSize: FontSize.sm, fontWeight: "700", color: C.text,
-    textAlign: "center", paddingHorizontal: 4,
+    textAlign: "center", paddingHorizontal: 6,
   },
 
   // Actions

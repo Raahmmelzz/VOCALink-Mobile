@@ -10,6 +10,7 @@ import { QUICK_ICONS } from "../../constants/mockdata";
 import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 import type { TabName } from "../ui/BottomNav";
 import { Badge, IconPill } from "../ui/shared";
+import { ScreenHeader } from "../ui/ScreenHeader";
 
 import TeacherHome from "./teacher-home"; 
 
@@ -79,16 +80,11 @@ const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        <LinearGradient
-          colors={["#0F172A", "#1E293B", "#0E8DB8"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <Badge color="teal" style={{ marginBottom: 10 }}>Online</Badge>
-          <Text style={styles.heroGreeting}>{greeting},</Text>
-          <Text style={styles.heroName}>{displayName} 👋</Text>
-          <Text style={styles.heroSub}>VocaLink — Your voice matters</Text>
-        </LinearGradient>
+        <ScreenHeader
+          title={`${greeting}, ${displayName} 👋`}
+          subtitle="VocaLink — Your voice matters"
+          right={<Badge color="teal">Online</Badge>}
+        />
 
         {/* ACTIVE SESSION BANNER */}
         {activeSessionCode && (

@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
+import { ScreenHeader } from "../ui/ScreenHeader";
 import { Colors as C, FontSize, Radius, Spacing } from "../../constants/tokens";
 
 interface CCLine {
@@ -155,14 +156,10 @@ const LiveCC: React.FC = () => {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
 
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Live Captions</Text>
-            <Text style={styles.headerSub}>
-              {connected ? `● Live from ${teacherName}` : "○ Reconnecting to class..."}
-            </Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Live Captions"
+          subtitle={connected ? `● Live from ${teacherName || "Teacher"}` : "○ Reconnecting to class..."}
+        />
 
         {/* Captions area */}
         <View style={styles.ccContainer}>
