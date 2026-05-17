@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
-  Dimensions, ScrollView, StyleSheet,
+  ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -13,14 +14,11 @@ import { API_BASE_URL } from "../../constants/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 import type { AACCategory, AACIcon } from "../../constants/types";
+import { ScreenHeader } from "../ui/ScreenHeader";
 
-// ── Grid math ─────────────────────────────────────────────────────────────────
-const { width: SW } = Dimensions.get("window");
-const PAD      = 16;
-const GAP      = 10;
-const COLS     = 3;
-const CELL     = Math.floor((SW - PAD * 2 - GAP * (COLS - 1)) / COLS);
-const EMOJI_SZ = Math.floor(CELL * 0.40);
+const PAD  = 16;
+const GAP  = 14;
+const COLS = 3;
 
 // Chunk array into rows of N
 function chunk<T>(arr: T[], n: number): T[][] {
@@ -44,6 +42,9 @@ interface AACBoardProps {
 
 const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   const { token, user } = useAuth();
+  const { width: SW } = useWindowDimensions();
+  const CELL     = Math.floor((SW - PAD * 2 - GAP * (COLS - 1)) / COLS);
+  const EMOJI_SZ = Math.floor(CELL * 0.40);
   const [category, setCategory] = useState<AACCategory>("all");
   const [selected, setSelected]  = useState<AACIcon[]>([]);
   const [speaking, setSpeaking]  = useState(false);
@@ -105,17 +106,18 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
     <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
 
       {/* ── Header ── */}
-      <View style={s.header}>
-        <Text style={s.headerTitle}>AAC Board</Text>
-        {selected.length > 0 && (
+      <ScreenHeader
+        title="AAC Board"
+        subtitle="Tap icons to build your message"
+        right={selected.length > 0 ? (
           <TouchableOpacity
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setSelected([]); }}
             style={s.clearBtn}
           >
             <Text style={s.clearBtnText}>✕ Clear</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        ) : undefined}
+      />
 
       {/* ── Message builder ── */}
       <View style={s.builder}>
@@ -177,15 +179,14 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
                 key={icon.id}
                 onPress={() => handleIconPress(icon)}
                 activeOpacity={0.75}
-                style={[s.cell, { backgroundColor: icon.bg }]}
+                style={[s.cellBase, { width: CELL, height: CELL + 30, backgroundColor: icon.bg }]}
               >
-                <Text style={s.cellEmoji}>{icon.emoji}</Text>
-                <Text style={s.cellLabel} numberOfLines={1}>{icon.label}</Text>
+                <Text style={{ fontSize: EMOJI_SZ }}>{icon.emoji}</Text>
+                <Text style={[s.cellLabel, { width: CELL - 8 }]} numberOfLines={1}>{icon.label}</Text>
               </TouchableOpacity>
             ))}
-            {/* Fill empty cells in last row */}
             {row.length < COLS && Array.from({ length: COLS - row.length }).map((_, i) => (
-              <View key={`empty-${i}`} style={s.cellEmpty} />
+              <View key={`empty-${i}`} style={{ width: CELL }} />
             ))}
           </View>
         ))}
@@ -270,19 +271,17 @@ const s = StyleSheet.create({
   catLabel: { fontSize: FontSize.sm, color: C.text2, fontWeight: "600" },
   catLabelActive: { color: C.white, fontWeight: "700" },
 
-  // Grid
+  // Grid — cell dimensions are computed inline using CELL/EMOJI_SZ from useWindowDimensions
   grid: { padding: PAD, paddingBottom: 20 },
-  row: { flexDirection: "row", gap: GAP, marginBottom: GAP },
-  cell: {
-    width: CELL, height: CELL + 30,
-    borderRadius: Radius.lg, alignItems: "center", justifyContent: "center",
-    gap: 8, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)", ...Shadow.sm,
+  row: { flexDirection: "row", gap: 14, marginBottom: 14 },
+  cellBase: {
+    borderRadius: Radius.xl, alignItems: "center", justifyContent: "center",
+    gap: 10, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)",
+    paddingVertical: 14, paddingHorizontal: 8, ...Shadow.sm,
   },
-  cellEmpty: { width: CELL },
-  cellEmoji: { fontSize: EMOJI_SZ },
   cellLabel: {
     fontSize: FontSize.sm, fontWeight: "700", color: C.text,
-    textAlign: "center", paddingHorizontal: 4, width: CELL - 8,
+    textAlign: "center", paddingHorizontal: 6,
   },
 
   // Actions

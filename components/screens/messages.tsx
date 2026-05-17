@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
+import { ScreenHeader } from "../ui/ScreenHeader";
 import { API_BASE_URL } from "../../constants/api";
 import { Colors as C, FontSize, Radius, Shadow, Spacing } from "../../constants/tokens";
 
@@ -124,22 +125,15 @@ const ChatThread: React.FC<ChatThreadProps> = ({
       style={{ flex: 1 }}
     >
       {/* Header */}
-      <View style={styles.threadHeader}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={styles.backBtnText}>‹</Text>
+      <ScreenHeader
+        title={otherName}
+        subtitle={onBack ? "Student" : "SNED Teacher · Online"}
+        right={onBack ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={{ color: "#fff", fontSize: 28, fontWeight: "300" }}>‹</Text>
           </TouchableOpacity>
-        )}
-        <View style={styles.headerAvatar}>
-          <Text style={styles.headerAvatarText}>{otherInitials}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerName}>{otherName}</Text>
-          <Text style={styles.headerSub}>
-            {onBack ? "Student" : "SNED Teacher · Online"}
-          </Text>
-        </View>
-      </View>
+        ) : undefined}
+      />
 
       {/* Messages */}
       <ScrollView
@@ -251,10 +245,10 @@ const TeacherInbox: React.FC<InboxProps> = ({ students, allMessages, myId, onSel
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-      <View style={styles.inboxHeader}>
-        <Text style={styles.inboxTitle}>Messages</Text>
-        <Text style={styles.inboxSub}>{students.length} student{students.length !== 1 ? "s" : ""}</Text>
-      </View>
+      <ScreenHeader
+        title="Messages"
+        subtitle={`${students.length} student${students.length !== 1 ? "s" : ""} in your class`}
+      />
 
       {students.map((s) => {
         // Find latest message in this thread

@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
+import { ScreenHeader } from "../ui/ScreenHeader";
 import { Colors as C, FontSize, Radius, Spacing } from "../../constants/tokens";
 
 const POLL_MS = 1500;
@@ -27,6 +28,18 @@ const QUICK_REPLIES = [
   "I don't understand ❓",
   "I am done 📖",
   "Thank you 🙏",
+];
+
+// AAC icon tray — shown in the live session so students can tap without leaving
+const LIVE_ICONS = [
+  { id: "help",     emoji: "✋", label: "Help me",  msg: "Help me!",        bg: "#FAEEDA" },
+  { id: "yes",      emoji: "✅", label: "Yes",       msg: "Yes",             bg: "#E1F5EE" },
+  { id: "no",       emoji: "❌", label: "No",        msg: "No",              bg: "#FCEBEB" },
+  { id: "done",     emoji: "📖", label: "Done",      msg: "I'm done",        bg: "#E1F5EE" },
+  { id: "question", emoji: "❓", label: "Question",  msg: "I have a question", bg: "#E6F1FB" },
+  { id: "repeat",   emoji: "🔁", label: "Repeat",    msg: "Please repeat",   bg: "#EEEDFE" },
+  { id: "wait",     emoji: "⏳", label: "Wait",      msg: "Wait please",     bg: "#FAEEDA" },
+  { id: "confused", emoji: "😕", label: "Confused",  msg: "I'm confused",    bg: "#E1F5EE" },
 ];
 
 interface CCLine {
@@ -139,14 +152,10 @@ const LiveCC: React.FC = () => {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
 
         {/* Header */}
-        <View style={s.header}>
-          <View>
-            <Text style={s.headerTitle}>Live Captions</Text>
-            <Text style={s.headerSub}>
-              {connected ? `● Live from ${teacherName}` : `○ Waiting for ${teacherName}…`}
-            </Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Live Captions"
+          subtitle={connected ? `● Live from ${teacherName || "Teacher"}` : "○ Reconnecting to class..."}
+        />
 
         {/* Caption + reply area */}
         <View style={s.ccContainer}>
@@ -192,6 +201,23 @@ const LiveCC: React.FC = () => {
                 );
               })
             )}
+          </ScrollView>
+        </View>
+
+        {/* AAC icon tray */}
+        <View style={s.iconTrayWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.iconTrayRow}>
+            {LIVE_ICONS.map((icon) => (
+              <TouchableOpacity
+                key={icon.id}
+                onPress={() => handleSend(icon.msg)}
+                style={[s.iconTile, { backgroundColor: icon.bg }]}
+                activeOpacity={0.75}
+              >
+                <Text style={s.iconTileEmoji}>{icon.emoji}</Text>
+                <Text style={s.iconTileLabel}>{icon.label}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 
@@ -255,6 +281,12 @@ const s = StyleSheet.create({
   replyTextOwn:    { color: "#FFF" },
   replyTime:       { fontSize: 10, color: "#9AA0A6", marginTop: 4 },
   replyTimeOwn:    { color: "rgba(255,255,255,0.6)" },
+  // AAC icon tray
+  iconTrayWrap:    { maxHeight: 88, borderTopWidth: 1, borderTopColor: "#3C4043", backgroundColor: "#2D2F31" },
+  iconTrayRow:     { paddingHorizontal: Spacing.md, gap: 8, alignItems: "center", paddingVertical: 8 },
+  iconTile:        { alignItems: "center", justifyContent: "center", borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 6, minWidth: 60, gap: 3 },
+  iconTileEmoji:   { fontSize: 22 },
+  iconTileLabel:   { fontSize: 10, fontWeight: "700", color: "#202124", textAlign: "center" },
   // Quick replies
   quickWrap:       { maxHeight: 46, borderTopWidth: 1, borderTopColor: "#3C4043", backgroundColor: "#2D2F31" },
   quickRow:        { paddingHorizontal: Spacing.md, gap: 6, alignItems: "center", paddingVertical: 6 },
