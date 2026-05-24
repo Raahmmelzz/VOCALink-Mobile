@@ -263,7 +263,7 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher, sessionCode }) => 
       </ScrollView>
 
       {/* ── Icon grid — manual rows for perfect alignment ── */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.grid}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.grid}>
         {rows.map((row, ri) => (
           <View key={ri} style={s.row}>
             {row.map(icon => (
