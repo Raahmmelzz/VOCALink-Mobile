@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext"; // 💥 Added useAuth import
 import { Colors as C, FontSize, Shadow } from "../../constants/tokens";
 
-export type TabName = "home" | "board" | "messages" | "livecc" | "profile";
+export type TabName = "home" | "board" | "livecc" | "profile";
 
 interface TabItem {
   id: TabName;
@@ -14,11 +14,10 @@ interface TabItem {
 
 // Renamed from TABS to ALL_TABS so we can filter it dynamically
 const ALL_TABS: TabItem[] = [
-  { id: "home", label: "Home", emoji: "🏠" },       // Replaced garbled characters with emojis
-  { id: "board", label: "AAC Board", emoji: "🗣️" },
-  { id: "messages", label: "Messages", emoji: "💬" },
-  { id: "livecc", label: "Live CC", emoji: "📝" },
-  { id: "profile", label: "Profile", emoji: "👤" },
+  { id: "home",    label: "Home",     emoji: "🏠"  },
+  { id: "board",   label: "AAC Board",emoji: "🗣️" },
+  { id: "livecc",  label: "Live CC",  emoji: "📝"  },
+  { id: "profile", label: "Profile",  emoji: "👤"  },
 ];
 
 interface BottomNavProps {

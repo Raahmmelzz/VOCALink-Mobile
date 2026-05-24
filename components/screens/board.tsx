@@ -45,10 +45,27 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   const { width: SW } = useWindowDimensions();
   const CELL     = Math.floor((SW - PAD * 2 - GAP * (COLS - 1)) / COLS);
   const EMOJI_SZ = Math.floor(CELL * 0.40);
-  const [category, setCategory] = useState<AACCategory>("all");
-  const [selected, setSelected]  = useState<AACIcon[]>([]);
-  const [speaking, setSpeaking]  = useState(false);
-  const [sent, setSent]          = useState(false);
+  const [category, setCategory]       = useState<AACCategory>("all");
+  const [selected, setSelected]        = useState<AACIcon[]>([]);
+  const [speaking, setSpeaking]        = useState(false);
+  const [sent, setSent]                = useState(false);
+  const [sessionCode, setSessionCode]  = useState<string | null>(null);
+
+  // Check if teacher has an active session
+  React.useEffect(() => {
+    if (!token) return;
+    const check = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/sessions/student`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSessionCode(res.data.active ? res.data.session_code : null);
+      } catch { setSessionCode(null); }
+    };
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   const filtered = category === "all"
     ? AAC_ICONS
@@ -60,10 +77,21 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
   const handleIconPress = (icon: AACIcon) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelected(prev => [...prev, icon]);
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // Always log the tap
     axios.post(`${API_BASE_URL}/logs/`,
       { icon_id: icon.id, icon_label: icon.label },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers }
     ).catch(() => {});
+
+    // Also log to session if one is active
+    if (sessionCode) {
+      axios.post(`${API_BASE_URL}/sessions/log/`,
+        { session_code: sessionCode, icon_id: icon.id, icon_label: icon.label },
+        { headers }
+      ).catch(() => {});
+    }
   };
 
   const handleSpeak = () => {
@@ -108,7 +136,7 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
       {/* ── Header ── */}
       <ScreenHeader
         title="AAC Board"
-        subtitle="Tap icons to build your message"
+        subtitle={sessionCode ? "🔴 Session Live — teacher is watching" : "Tap icons to build your message"}
         right={selected.length > 0 ? (
           <TouchableOpacity
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setSelected([]); }}
