@@ -111,7 +111,7 @@ export default function EditProfileScreen() {
                 style={styles.input}
                 value={disabilityType}
                 onChangeText={setDisabilityType}
-                placeholder="e.g. Deaf, Mute"
+                placeholder="e.g. Nonverbal, Speech delay"
                 autoCapitalize="sentences"
               />
             </>

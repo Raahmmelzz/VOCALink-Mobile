@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -57,7 +58,16 @@ export default function LoginScreen() {
     try {
       await login(username, password);
     } catch (error: any) {
-      alert("Login Failed: Invalid credentials. Please try again.");
+      const detail = error?.response?.data?.detail || error?.message || "";
+      if (detail === "EMAIL_NOT_VERIFIED") {
+        Alert.alert(
+          "Email Not Verified",
+          "Please check your email and enter the verification code.",
+          [{ text: "Verify Now", onPress: () => router.push({ pathname: "/(auth)/verify-email", params: { email: username } } as any) }]
+        );
+      } else {
+        Alert.alert("Login Failed", "Invalid credentials. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

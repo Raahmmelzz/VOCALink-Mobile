@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
@@ -38,34 +38,48 @@ const CATEGORIES: { id: AACCategory; label: string; emoji: string; color: string
 
 interface AACBoardProps {
   onSendToTeacher?: (message: string) => void;
+  sessionCode?: string | null;
 }
 
-const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
+const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher, sessionCode }) => {
   const { token, user } = useAuth();
   const { width: SW } = useWindowDimensions();
   const CELL     = Math.floor((SW - PAD * 2 - GAP * (COLS - 1)) / COLS);
   const EMOJI_SZ = Math.floor(CELL * 0.40);
-  const [category, setCategory]       = useState<AACCategory>("all");
-  const [selected, setSelected]        = useState<AACIcon[]>([]);
-  const [speaking, setSpeaking]        = useState(false);
-  const [sent, setSent]                = useState(false);
-  const [sessionCode, setSessionCode]  = useState<string | null>(null);
+  const [category, setCategory] = useState<AACCategory>("all");
+  const [selected, setSelected] = useState<AACIcon[]>([]);
+  const [speaking, setSpeaking] = useState(false);
+  const [sent, setSent]         = useState(false);
 
-  // Check if teacher has an active session
-  React.useEffect(() => {
-    if (!token) return;
-    const check = async () => {
+  // ── LSTM-style next-icon prediction ───────────────────────────────────────
+  const [predictions, setPredictions]       = useState<AACIcon[]>([]);
+  const [predictLoading, setPredictLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPredictions = async () => {
+      setPredictLoading(true);
       try {
-        const res = await axios.get(`${API_BASE_URL}/sessions/student`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setSessionCode(res.data.active ? res.data.session_code : null);
-      } catch { setSessionCode(null); }
+        const res = await axios.post(
+          `${API_BASE_URL}/predict-next/`,
+          { sequence: selected.map(s => s.id), top_k: 3 },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (cancelled) return;
+        const ids: string[] = res.data?.predictions || [];
+        const mapped = ids
+          .map(id => AAC_ICONS.find(i => i.id === id))
+          .filter((x): x is AACIcon => !!x);
+        setPredictions(mapped);
+      } catch {
+        if (!cancelled) setPredictions([]);
+      } finally {
+        if (!cancelled) setPredictLoading(false);
+      }
     };
-    check();
-    const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
-  }, [token]);
+    fetchPredictions();
+    return () => { cancelled = true; };
+  }, [selected, token]);
 
   const filtered = category === "all"
     ? AAC_ICONS
@@ -130,13 +144,30 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
     setTimeout(() => { setSent(false); setSelected([]); }, 2000);
   };
 
+  // ── No session → show waiting screen ────────────────────────────────────
+  if (!sessionCode) {
+    return (
+      <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+        <ScreenHeader title="AAC Board" subtitle="Waiting for session..." />
+        <View style={s.noSessionWrap}>
+          <Text style={s.noSessionEmoji}>⏳</Text>
+          <Text style={s.noSessionTitle}>No Active Session</Text>
+          <Text style={s.noSessionSub}>
+            Wait for your teacher to start a session.{"\n"}
+            The board will unlock automatically.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
 
       {/* ── Header ── */}
       <ScreenHeader
         title="AAC Board"
-        subtitle={sessionCode ? "🔴 Session Live — teacher is watching" : "Tap icons to build your message"}
+        subtitle="🔴 Session Live — teacher is watching"
         right={selected.length > 0 ? (
           <TouchableOpacity
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setSelected([]); }}
@@ -176,6 +207,39 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
           </>
         )}
       </View>
+
+      {/* ── LSTM Smart Suggestions ── */}
+      {predictions.length > 0 && (
+        <View style={s.predictWrap}>
+          <View style={s.predictHeader}>
+            <Text style={s.predictTitle}>✨ Suggested Next</Text>
+            <Text style={s.predictBadge}>LSTM</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.predictRow}
+          >
+            {predictions.map(icon => (
+              <TouchableOpacity
+                key={`pred-${icon.id}`}
+                onPress={() => handleIconPress(icon)}
+                activeOpacity={0.75}
+                style={[s.predictChip, { backgroundColor: icon.bg }]}
+              >
+                <Text style={s.predictEmoji}>{icon.emoji}</Text>
+                <Text style={s.predictLabel} numberOfLines={1}>{icon.label}</Text>
+              </TouchableOpacity>
+            ))}
+            {predictLoading && (
+              <View style={[s.predictChip, { backgroundColor: "#F1F5F9" }]}>
+                <Text style={s.predictEmoji}>⏳</Text>
+                <Text style={s.predictLabel}>...</Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      )}
 
       {/* ── Category tabs ── */}
       <ScrollView
@@ -249,6 +313,20 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher }) => {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
 
+  // No session
+  noSessionWrap: {
+    flex: 1, alignItems: "center", justifyContent: "center", padding: 40,
+  },
+  noSessionEmoji: { fontSize: 64, marginBottom: 20 },
+  noSessionTitle: {
+    fontSize: FontSize.xl, fontWeight: "800", color: C.text,
+    textAlign: "center", marginBottom: 12, letterSpacing: -0.5,
+  },
+  noSessionSub: {
+    fontSize: FontSize.base, color: C.text3, textAlign: "center",
+    lineHeight: 24, fontWeight: "500",
+  },
+
   // Header
   header: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
@@ -285,6 +363,33 @@ const s = StyleSheet.create({
     marginTop: 6, fontSize: FontSize.sm,
     color: C.text2, fontWeight: "600", fontStyle: "italic",
   },
+
+  // LSTM Predictions
+  predictWrap: {
+    marginHorizontal: PAD, marginTop: 4, marginBottom: 6,
+    backgroundColor: "#FAF5FF", borderRadius: Radius.lg,
+    borderWidth: 1.5, borderColor: "#E9D5FF",
+    padding: 10, ...Shadow.sm,
+  },
+  predictHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    marginBottom: 8, paddingHorizontal: 2,
+  },
+  predictTitle: { fontSize: FontSize.sm, fontWeight: "800", color: "#7C3AED" },
+  predictBadge: {
+    fontSize: 10, fontWeight: "900", color: "#fff",
+    backgroundColor: "#7C3AED", paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: Radius.full, overflow: "hidden", letterSpacing: 0.5,
+  },
+  predictRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  predictChip: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: Radius.full, borderWidth: 1.5, borderColor: "rgba(0,0,0,0.06)",
+    minHeight: 44,
+  },
+  predictEmoji: { fontSize: 22 },
+  predictLabel: { fontSize: FontSize.sm, fontWeight: "700", color: C.text },
 
   // Category
   catWrap: { maxHeight: 58, flexGrow: 0 },
