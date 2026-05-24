@@ -14,7 +14,7 @@ import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/api";
 import { ScreenHeader } from "../ui/ScreenHeader";
-import { Colors as C, FontSize, Radius, Spacing } from "../../constants/tokens";
+import { FontSize, Radius, Spacing } from "../../constants/tokens";
 
 interface CCLine {
   id: number;
@@ -57,61 +57,50 @@ const LiveCC: React.FC = () => {
       .catch(() => {});
   }, [token]);
 
-  // ✅ FIX: This now connects to the same room_manager the teacher is in.
-  // The old code used the orphaned `manager` — students and teacher were in separate rooms.
+  const lastIdRef = useRef(0);
+  const [isConnecting, setIsConnecting] = useState(true);
+
   useEffect(() => {
     if (!token) return;
+    let stopped = false;
 
-    let ws: WebSocket;
-    let reconnectTimer: NodeJS.Timeout;
-
-    const connectWebSocket = () => {
-      const wsUrl = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "/ws/cc");
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        ws.send(token);
+    const poll = async () => {
+      try {
+        const res = await axios.get(
+          `${API_BASE_URL}/cc/messages/?since=${lastIdRef.current}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (stopped) return;
         setConnected(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // Presence updates (user count) — no visible UI for student, just log
-          if (data.type === "presence") return;
-
-          if (data.type === "message") {
-            const newLine: CCLine = {
-              id: Date.now(),
-              text: data.text,
-              speaker: data.speaker,
-              time: data.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              // Mark as "own" if the student's own user_id sent it
-              isOwn: data.sender_id === (user as any)?.id,
-            };
-            setLines((prev) => [...prev, newLine]);
-          }
-        } catch (e) {
-          console.log("Error parsing websocket message");
+        setIsConnecting(false);
+        const msgs: any[] = res.data;
+        if (msgs.length > 0) {
+          lastIdRef.current = msgs[msgs.length - 1].id;
+          setLines((prev) => [
+            ...prev,
+            ...msgs.map((m) => ({
+              id: m.id,
+              text: m.text,
+              speaker: m.speaker || "teacher",
+              time: m.sent_at
+                ? m.sent_at.slice(11, 16)
+                : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              isOwn: false,
+            })),
+          ]);
         }
-      };
-
-      ws.onclose = () => {
+      } catch {
+        if (stopped) return;
         setConnected(false);
-        reconnectTimer = setTimeout(connectWebSocket, 3000);
-      };
-
-      ws.onerror = () => {
-        setConnected(false);
-      };
+        setIsConnecting(false);
+      }
     };
 
-    connectWebSocket();
-
+    poll();
+    const interval = setInterval(poll, 1500);
     return () => {
-      clearTimeout(reconnectTimer);
-      if (ws) ws.close();
+      stopped = true;
+      clearInterval(interval);
     };
   }, [token]);
 
@@ -158,7 +147,13 @@ const LiveCC: React.FC = () => {
         {/* Header */}
         <ScreenHeader
           title="Live Captions"
-          subtitle={connected ? `● Live from ${teacherName || "Teacher"}` : "○ Reconnecting to class..."}
+          subtitle={
+            isConnecting
+              ? "○ Connecting..."
+              : connected
+              ? `● Live from ${teacherName || "Teacher"}`
+              : "○ Reconnecting to class..."
+          }
         />
 
         {/* Captions area */}
@@ -171,7 +166,13 @@ const LiveCC: React.FC = () => {
           >
             {visibleLines.length === 0 ? (
               <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>Waiting for {teacherName} to speak...</Text>
+                <Text style={styles.emptyText}>
+                  {isConnecting
+                    ? "Connecting..."
+                    : connected
+                    ? `Waiting for ${teacherName} to speak...`
+                    : "Reconnecting to class..."}
+                </Text>
               </View>
             ) : (
               visibleLines.map((line, i) => {

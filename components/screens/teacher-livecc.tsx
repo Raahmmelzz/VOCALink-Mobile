@@ -37,42 +37,62 @@ export default function TeacherLiveCC({ setActive }: Props) {
   const [isSending, setIsSending] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
 
+  const lastIdRef = useRef(0);
+
+  // Poll for new CC messages every 1.5 s
   useEffect(() => {
     if (!token) return;
+    let stopped = false;
 
-    // ✅ FIX: /api/broadcast/ now requires auth, so we pass the token in the WS handshake
-    // so the server knows who is connecting for presence tracking.
-    const wsUrl = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "/ws/cc");
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => ws.send(token);
-
-    ws.onmessage = (event) => {
+    const poll = async () => {
       try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "presence") {
-          // Subtract 1 so the teacher doesn't count themselves
-          setStudentCount(Math.max(0, data.count - 1));
-        } else if (data.type === "message") {
-          const newLine: CCLine = {
-            id: Date.now(),
-            text: data.text,
-            speaker: data.speaker,
-            senderName: data.sender_name,
-            time: data.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          };
-          setLines((prev) => [...prev, newLine]);
+        const res = await axios.get(
+          `${API_BASE_URL}/cc/messages/?since=${lastIdRef.current}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (stopped) return;
+        const msgs: any[] = res.data;
+        if (msgs.length > 0) {
+          lastIdRef.current = msgs[msgs.length - 1].id;
+          setLines((prev) => [
+            ...prev,
+            ...msgs.map((m) => ({
+              id: m.id,
+              text: m.text,
+              speaker: m.speaker || "teacher",
+              senderName: m.speaker === "teacher" ? undefined : "Student",
+              time: m.sent_at
+                ? m.sent_at.slice(11, 16)
+                : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            })),
+          ]);
         }
-      } catch (e) {
-        console.log("Error parsing websocket message:", e);
-      }
+      } catch {}
     };
 
-    ws.onerror = () => console.log("WebSocket error");
-    ws.onclose = () => console.log("WebSocket closed");
+    poll();
+    const interval = setInterval(poll, 1500);
+    return () => { stopped = true; clearInterval(interval); };
+  }, [token]);
 
-    return () => ws.close();
+  // Poll online student count every 10 s
+  useEffect(() => {
+    if (!token) return;
+    let stopped = false;
+
+    const fetchCount = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/teacher/students/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (stopped) return;
+        setStudentCount(res.data.filter((s: any) => s.is_online).length);
+      } catch {}
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 10000);
+    return () => { stopped = true; clearInterval(interval); };
   }, [token]);
 
   // ✅ FIX: Now passes auth header — the backend now requires it to prevent anonymous broadcasts
