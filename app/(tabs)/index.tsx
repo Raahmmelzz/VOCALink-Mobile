@@ -77,7 +77,7 @@ export default function TabsLayout() {
     switch (active) {
       case "home":    return <Home setActive={setActive} />;
       case "board":   return <AACBoard onSendToTeacher={handleSendToTeacher} sessionCode={sessionCode} />;
-      case "livecc":  return <LiveCC />;
+      case "livecc":  return <LiveCC setActive={setActive} />;
       case "profile": return <ProfileUI />;
       default:        return null;
     }
