@@ -41,14 +41,15 @@ export default function TeacherLiveCC({ setActive }: Props) {
   const [transcribing, setTranscribing] = useState(false);
   const lastCCIdRef    = useRef<number>(0);
   const lastReplyIdRef = useRef<number>(0);
+  const lastAacIdRef   = useRef<number>(0);
   const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingRef   = useRef<Audio.Recording | null>(null);
 
-  // ── Poll own broadcast feed ───────────────────────────────────────────────
+  // ── Poll captions + student replies + AAC icon taps ───────────────────────
   const poll = useCallback(async () => {
     if (!token) return;
     try {
-      // 1. Fetch new teacher captions
+      // 1. Teacher's own broadcast captions
       const ccRes = await axios.get(
         `${API_BASE_URL}/cc/messages/?since=${lastCCIdRef.current}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -67,7 +68,7 @@ export default function TeacherLiveCC({ setActive }: Props) {
         lastCCIdRef.current = ccMsgs[ccMsgs.length - 1].id;
       }
 
-      // 2. Fetch new student replies
+      // 2. Student typed replies
       const replyRes = await axios.get(
         `${API_BASE_URL}/messages/my-students?since=${lastReplyIdRef.current}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -85,6 +86,26 @@ export default function TeacherLiveCC({ setActive }: Props) {
         }));
         setLines((prev) => [...prev, ...formatted]);
         lastReplyIdRef.current = replies[replies.length - 1].id;
+      }
+
+      // 3. AAC icon taps from the session log
+      const aacRes = await axios.get(
+        `${API_BASE_URL}/sessions/logs/?since=${lastAacIdRef.current}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const aacLogs: any[] = aacRes.data;
+      if (aacLogs.length > 0) {
+        const formatted: CCLine[] = aacLogs.map((l) => ({
+          id:          `aac-${l.id}`,
+          text:        l.message || l.icon_label,
+          speaker:     "student" as const,
+          time:        l.tapped_at
+            ? new Date(l.tapped_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          studentName: l.student_name || "Student",
+        }));
+        setLines((prev) => [...prev, ...formatted]);
+        lastAacIdRef.current = aacLogs[aacLogs.length - 1].id;
       }
     } catch { /* silent — just keep polling */ }
   }, [token]);
@@ -325,8 +346,8 @@ const s = StyleSheet.create({
   ccText:         { fontSize: FontSize.base, color: C.text, lineHeight: 22 },
   // Student reply cards
   replyCard:      { backgroundColor: C.purpleLight, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: C.gray2, ...Shadow.sm },
-  replySpeaker:   { fontSize: FontSize.xs, fontWeight: "700", color: C.purple },
-  replyText:      { fontSize: FontSize.base, color: C.text, lineHeight: 22 },
+  replySpeaker:   { fontSize: FontSize.sm, fontWeight: "700", color: C.purple },
+  replyText:      { fontSize: 20, color: C.text, lineHeight: 28 },
   // Transcribing bar
   transcribingBar:  { paddingHorizontal: Spacing.lg, paddingVertical: 6, backgroundColor: "#FEF9C3", borderTopWidth: 1, borderTopColor: "#FDE68A" },
   transcribingText: { fontSize: FontSize.xs, color: "#92400E", fontWeight: "600", textAlign: "center" },

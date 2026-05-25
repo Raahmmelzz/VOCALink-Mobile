@@ -8,27 +8,35 @@ import Home          from "../../components/screens/home";
 import TeacherHome   from "../../components/screens/teacher-home";
 import TeacherLiveCC from "../../components/screens/teacher-livecc";
 import LiveCC        from "../../components/screens/livecc";
-import Messages      from "../../components/screens/messages";
 import ProfileUI     from "../../components/screens/profile";
+// Messages removed — students communicate via AAC Board → Session → Live CC
 import BottomNav, { TabName } from "../../components/ui/BottomNav";
 import { Colors as C, FontSize, Radius, Shadow } from "../../constants/tokens";
 import { API_BASE_URL } from "../../constants/api";
 
-// ExtendedTabName covers every screen including teacher-livecc which lives
-// outside BottomNav but is a valid active state.
-export type ExtendedTabName = TabName | "teacher-livecc";
+export type ExtendedTabName = TabName | "teacher-livecc" | "sessioning";
 
 export default function TabsLayout() {
   const { user, token } = useAuth();
   const isTeacher = user?.status === "TEACHER";
 
-  const [active, setActive]   = useState<ExtendedTabName>("home");
-  const [unread, setUnread]   = useState(1);
-
-  // Track whether a teacher session is live so we can show the return button
+  const [active, setActive]               = useState<ExtendedTabName>("home");
+  const [unread, setUnread]               = useState(1);
   const [sessionActive, setSessionActive] = useState(false);
+  const [sessionCode, setSessionCode]     = useState<string | null>(null);
 
-  // Poll session status every 5 s so the return button appears/disappears correctly
+  // ── Presence heartbeat every 30s (student only) ──────────────────────────
+  useEffect(() => {
+    if (!token || isTeacher) return;
+    const ping = () => axios.post(`${API_BASE_URL}/presence/`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 30000);
+    return () => clearInterval(interval);
+  }, [token, isTeacher]);
+
+  // ── Poll teacher session status every 5s (return pill visibility) ─────────
   useEffect(() => {
     if (!isTeacher || !token) return;
 
@@ -48,40 +56,53 @@ export default function TabsLayout() {
     return () => clearInterval(interval);
   }, [isTeacher, token]);
 
+  // ── Poll session status every 5s (student only) ──────────────────────────
+  useEffect(() => {
+    if (!token || isTeacher) return;
+
+    const check = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/sessions/student`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data.active) {
+          setSessionCode(res.data.session_code);
+        } else {
+          setSessionCode(null);
+        }
+      } catch {
+        setSessionCode(null);
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, [token, isTeacher]);
+
   const handleSendToTeacher = (msg: string) => {
     console.log("Student sent:", msg);
   };
 
   // ── Screen renderer ──────────────────────────────────────────────────────
   const renderScreen = () => {
+    // ── Teacher screens ──────────────────────────────────────────────
     if (isTeacher) {
       switch (active) {
-        case "home":
-          return <TeacherHome setActive={setActive} />;
-        case "teacher-livecc":
-          return <TeacherLiveCC setActive={setActive} />;
-        case "messages":
-          return <Messages />;
-        case "profile":
-          return <ProfileUI />;
-        default:
-          return <TeacherHome setActive={setActive} />;
+        case "home":           return <TeacherHome setActive={setActive} />;
+        case "teacher-livecc": return <TeacherLiveCC setActive={setActive} />;
+        case "profile":        return <ProfileUI />;
+        default:               return <TeacherHome setActive={setActive} />;
       }
     }
 
+    // ── Student screens ──────────────────────────────────────────────
     switch (active) {
-      case "home":
-        return <Home setActive={setActive} teacherReply={null} />;
-      case "board":
-        return <AACBoard onSendToTeacher={handleSendToTeacher} />;
-      case "messages":
-        return <Messages />;
-      case "livecc":
-        return <LiveCC />;
-      case "profile":
-        return <ProfileUI />;
-      default:
-        return null;
+      case "home":    return <Home setActive={setActive} />;
+      case "board":   return <AACBoard onSendToTeacher={handleSendToTeacher} sessionCode={sessionCode} />;
+      case "livecc":  return <LiveCC />;
+      case "profile": return <ProfileUI />;
+      default:        return null;
     }
   };
 
@@ -109,13 +130,11 @@ export default function TabsLayout() {
       )}
 
       {/* ── Bottom nav ───────────────────────────────────────────────────── */}
-      {/* Pass active tab — if teacher is in teacher-livecc, highlight "home"
-          so the nav doesn't show a blank selection. */}
+      {/* If teacher is in teacher-livecc, highlight "home" so nav has a selection. */}
       <BottomNav
         active={(active === "teacher-livecc" ? "home" : active) as TabName}
         setActive={(tab) => {
           setActive(tab);
-          if (tab === "messages") setUnread(0);
         }}
         unread={unread}
       />
@@ -129,20 +148,19 @@ const styles = StyleSheet.create({
 
   // Floating pill — sits just above the bottom nav
   returnPill: {
-    position:        "absolute",
-    bottom:          72,           // just above the BottomNav (~56 px tall + 16 margin)
-    alignSelf:       "center",
-    flexDirection:   "row",
-    alignItems:      "center",
-    gap:             8,
-    backgroundColor: "#047857",
+    position:          "absolute",
+    bottom:            72,
+    alignSelf:         "center",
+    flexDirection:     "row",
+    alignItems:        "center",
+    gap:               8,
+    backgroundColor:   "#047857",
     paddingHorizontal: 20,
     paddingVertical:   12,
-    borderRadius:    Radius.full,
+    borderRadius:      Radius.full,
     ...Shadow.md,
-    // subtle border so it pops on light backgrounds too
-    borderWidth:  1,
-    borderColor:  "rgba(255,255,255,0.15)",
+    borderWidth:       1,
+    borderColor:       "rgba(255,255,255,0.15)",
   },
   returnPillDot:   { fontSize: 14 },
   returnPillText:  { fontSize: FontSize.sm, color: "#FFFFFF", fontWeight: "700" },

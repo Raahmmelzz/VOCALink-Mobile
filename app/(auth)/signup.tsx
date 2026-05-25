@@ -42,21 +42,25 @@ export default function SignupScreen() {
       Alert.alert("Hold up!", "Please fill in all the fields.");
       return;
     }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address (e.g. name@gmail.com).");
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert("Weak Password", "Password must be at least 6 characters.");
+      return;
+    }
 
     setLoading(true);
     try {
       console.log(`🚀 Trying to register: ${username} / ${email}`);
       await signup(username, email, password, fullName);
-      
-      console.log("✅ Signup successful! Routing to tabs...");
-      router.replace("/(tabs)" as any);
-      
+      router.replace({ pathname: "/(auth)/verify-email", params: { email } } as any);
+
     } catch (error) {
-      const err = error as any; 
-      console.log("❌ SIGNUP REJECTED BY FASTAPI:");
-      console.log(JSON.stringify(err.response?.data, null, 2) || err.message);
-      
-      Alert.alert("Signup Failed", "Check your Metro terminal for the exact reason!");
+      const err = error as any;
+      const msg = err.response?.data?.detail || err.message || "Registration failed.";
+      Alert.alert("Signup Failed", msg);
     } finally {
       setLoading(false);
     }

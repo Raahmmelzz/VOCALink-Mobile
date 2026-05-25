@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [first_name, ...rest] = (fullName ?? '').trim().split(' ');
     const last_name = rest.join(' ');
 
-    await axios.post(`${API_BASE_URL}/auth/register/`, {
+    const res = await axios.post(`${API_BASE_URL}/auth/register/`, {
       username,
       email,
       password,
@@ -109,7 +109,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       ...(last_name && { last_name }),
     });
 
-    await login(username, password);
+    // Return the response data so signup screen can check auto_verified
+    return res.data;
   };
 
   const updateProfile = async (profileData: Partial<User>) => {

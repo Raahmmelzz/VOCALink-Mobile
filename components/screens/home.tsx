@@ -16,7 +16,7 @@ import TeacherHome from "./teacher-home";
 
 interface HomeProps {
   setActive: (tab: TabName) => void;
-  teacherReply?: string | null;
+  sessionCode?: string | null;
 }
 
 const CTAButton: React.FC<{ emoji: string; label: string; sub: string; color: string; onPress: () => void; }> = ({ emoji, label, sub, color, onPress }) => (
@@ -34,7 +34,7 @@ const CTAButton: React.FC<{ emoji: string; label: string; sub: string; color: st
   </TouchableOpacity>
 );
 
-const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
+const Home: React.FC<HomeProps> = ({ setActive, sessionCode: sessionCodeProp }) => {
   const { user, token } = useAuth();
   const [activeSessionCode, setActiveSessionCode] = useState<string | null>(null);
 
@@ -72,9 +72,13 @@ const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const rawUsername = user?.username;
-  const usernameIsEmail = rawUsername?.includes("@");
-  const displayName = user?.first_name || (!usernameIsEmail ? rawUsername : null) || "there";
+  const rawUsername = user?.username ?? "";
+  const usernameIsEmail = rawUsername.includes("@");
+  // Priority: first_name → username (if not email) → first part of email → "Student"
+  const displayName =
+    user?.first_name ||
+    (!usernameIsEmail ? rawUsername : rawUsername.split("@")[0]) ||
+    "Student";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -109,15 +113,6 @@ const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
           </TouchableOpacity>
         )}
 
-        {teacherReply && !activeSessionCode && (
-          <View style={styles.replyBanner}>
-            <Text style={styles.replyIcon}>👩‍🏫</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.replyLabel}>Teacher says:</Text>
-              <Text style={styles.replyText}>{teacherReply}</Text>
-            </View>
-          </View>
-        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHead}>
@@ -137,7 +132,6 @@ const Home: React.FC<HomeProps> = ({ setActive, teacherReply }) => {
           <Text style={styles.sectionTitle}>Go to</Text>
           <View style={styles.ctaList}>
             <CTAButton emoji="🗣" label="Full AAC Board" sub="Tap icons to communicate" color={C.purple} onPress={() => setActive("board")} />
-            <CTAButton emoji="💬" label="Messages" sub="View your conversations" color={C.teal} onPress={() => setActive("messages")} />
             <CTAButton emoji="📝" label="Live Captions" sub="See what teacher is saying" color="#22C55E" onPress={() => setActive("livecc")} />
           </View>
         </View>
