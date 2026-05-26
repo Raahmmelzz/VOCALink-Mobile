@@ -53,8 +53,13 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      console.log(`🚀 Trying to register: ${username} / ${email}`);
-      await signup(username, email, password, fullName);
+      const result = await signup(username, email, password, fullName);
+      if (result?.email_sent === false) {
+        Alert.alert(
+          "Check Spam / Resend",
+          `Account created! But the verification email failed to send.\n\nError: ${result.email_error ?? "unknown"}\n\nOn the next screen, tap "Resend Code" to try again.`
+        );
+      }
       router.replace({ pathname: "/(auth)/verify-email", params: { email } } as any);
 
     } catch (error) {
@@ -103,6 +108,7 @@ export default function SignupScreen() {
               value={fullName}
               onChangeText={setFullName}
               placeholder="e.g. Juan Dela Cruz"
+              placeholderTextColor="#9CA3AF"
               autoCapitalize="words"
             />
 
@@ -112,6 +118,7 @@ export default function SignupScreen() {
               value={username}
               onChangeText={setUsername}
               placeholder="e.g. test999"
+              placeholderTextColor="#9CA3AF"
               autoCapitalize="none"
             />
 
@@ -121,6 +128,7 @@ export default function SignupScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="test999@email.com"
+              placeholderTextColor="#9CA3AF"
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -132,6 +140,7 @@ export default function SignupScreen() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••••"
+                placeholderTextColor="#9CA3AF"
                 secureTextEntry={!showPass}
               />
               <TouchableOpacity onPress={() => setShowPass(!showPass)} style={fallbackStyles.eyeBtn} activeOpacity={0.7}>
@@ -163,8 +172,8 @@ export default function SignupScreen() {
 // Fallback styles for inputs and buttons so we don't need the missing custom components
 const fallbackStyles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 12 },
-  input: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
-  inputWrap: { flexDirection: 'row' as const, alignItems: 'center' as const, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, marginBottom: 8 },
+  input: { backgroundColor: '#F0F9FF', borderWidth: 2, borderColor: '#1AADDC', borderRadius: 12, padding: 16, fontSize: 16, color: '#111827', marginBottom: 8 },
+  inputWrap: { flexDirection: 'row' as const, alignItems: 'center' as const, backgroundColor: '#F0F9FF', borderWidth: 2, borderColor: '#1AADDC', borderRadius: 12, marginBottom: 8 },
   inputInner: { flex: 1, padding: 16, fontSize: 16, color: '#111827' },
   eyeBtn: { paddingHorizontal: 14, paddingVertical: 12 },
   eyeText: { fontSize: 20 },

@@ -125,6 +125,7 @@ export default function LoginScreen() {
               value={username}
               onChangeText={setUsername}
               placeholder="Enter your username or email"
+              placeholderTextColor="#9CA3AF"
               autoCapitalize="none"
               keyboardType="email-address"
             />
@@ -136,6 +137,7 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••••"
+                placeholderTextColor="#9CA3AF"
                 secureTextEntry={!showPass}
               />
               <TouchableOpacity
@@ -208,9 +210,9 @@ const fallbackStyles = StyleSheet.create({
     marginTop: 12,
   },
   input: {
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "#F0F9FF",
+    borderWidth: 2,
+    borderColor: "#1AADDC",
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
@@ -220,9 +222,9 @@ const fallbackStyles = StyleSheet.create({
   inputWrap: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "#F0F9FF",
+    borderWidth: 2,
+    borderColor: "#1AADDC",
     borderRadius: 12,
     marginBottom: 8,
   },

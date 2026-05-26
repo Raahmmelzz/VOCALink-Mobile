@@ -132,7 +132,7 @@ export const loginStyles = StyleSheet.create({
 
   /* ── White Form Panel ───────────────────── */
   formPanel: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FCFF",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 28,

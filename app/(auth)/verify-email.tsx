@@ -8,8 +8,7 @@ import {
   TextInput, TouchableOpacity, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const API = "https://vocalink-fastapi.onrender.com/api/auth";
+import { API_BASE_URL } from "../../constants/api";
 
 export default function VerifyEmailScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -24,7 +23,7 @@ export default function VerifyEmailScreen() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/verify-email/`, {
+      const res = await fetch(`${API_BASE_URL}/auth/verify-email/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code }),
@@ -85,12 +84,17 @@ export default function VerifyEmailScreen() {
               onPress={async () => {
                 setResending(true);
                 try {
-                  await fetch(`${API}/forgot-password/`, {
+                  const res = await fetch(`${API_BASE_URL}/auth/resend-verification/`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email }),
                   });
-                  Alert.alert("Code Resent", "A new code has been sent. Check your email or Render logs.");
+                  const data = await res.json();
+                  if (data.email_sent) {
+                    Alert.alert("Code Resent", "A new 6-digit code has been sent to your email.");
+                  } else {
+                    Alert.alert("Send Failed", `Could not send email.\n${data.email_error ?? "Check that BREVO_API_KEY is set on Render."}`);
+                  }
                 } catch {
                   Alert.alert("Error", "Could not resend code. Try again.");
                 } finally {
