@@ -101,7 +101,7 @@ const LiveCC: React.FC<Props> = ({ setActive }) => {
     };
   }, [token]);
 
-  const teacherLines = lines.filter((l) => l.speaker === "teacher").slice(-6);
+  const teacherLines = lines.slice(-6);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -137,13 +137,15 @@ const LiveCC: React.FC<Props> = ({ setActive }) => {
           ) : (
             teacherLines.map((line, i) => {
               const isLatest = i === teacherLines.length - 1;
+              const isStudent = line.speaker === "student";
               const opacity = isLatest
                 ? 1
                 : 0.4 + (i / Math.max(teacherLines.length, 1)) * 0.4;
               return (
-                <View key={line.id} style={[styles.ccRow, { opacity }]}>
-                  {isLatest && <View style={styles.activeIndicator} />}
-                  <Text style={[styles.ccText, isLatest && styles.ccTextLatest]}>
+                <View key={line.id} style={[styles.ccRow, isStudent && styles.ccRowStudent, { opacity }]}>
+                  {isLatest && !isStudent && <View style={styles.activeIndicator} />}
+                  {isStudent && <Text style={styles.studentLabel}>You</Text>}
+                  <Text style={[styles.ccText, isLatest && !isStudent && styles.ccTextLatest, isStudent && styles.ccTextStudent]}>
                     {line.text}
                   </Text>
                 </View>
@@ -192,6 +194,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     paddingLeft: 10,
+  },
+  ccRowStudent: {
+    justifyContent: "flex-end",
+    paddingLeft: 0,
+    paddingRight: 10,
+  },
+  studentLabel: {
+    fontSize: 11,
+    color: "#8AB4F8",
+    fontWeight: "700",
+    marginRight: 6,
+    alignSelf: "flex-end",
+    marginBottom: 4,
+  },
+  ccTextStudent: {
+    color: "#8AB4F8",
+    fontSize: 20,
+    fontWeight: "600",
   },
   activeIndicator: {
     width: 4,

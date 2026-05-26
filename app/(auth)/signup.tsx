@@ -53,15 +53,10 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const result = await signup(username, email, password, fullName);
-      if (result?.email_sent === false) {
-        Alert.alert(
-          "Check Spam / Resend",
-          `Account created! But the verification email failed to send.\n\nError: ${result.email_error ?? "unknown"}\n\nOn the next screen, tap "Resend Code" to try again.`
-        );
-      }
-      router.replace({ pathname: "/(auth)/verify-email", params: { email } } as any);
-
+      await signup(username, email, password, fullName);
+      Alert.alert("Account Created!", "You can now sign in.", [
+        { text: "Sign In", onPress: () => router.replace("/(auth)/login" as any) },
+      ]);
     } catch (error) {
       const err = error as any;
       const msg = err.response?.data?.detail || err.message || "Registration failed.";

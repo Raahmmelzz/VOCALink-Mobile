@@ -91,21 +91,6 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher, sessionCode }) => 
   const handleIconPress = (icon: AACIcon) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelected(prev => [...prev, icon]);
-    const headers = { Authorization: `Bearer ${token}` };
-
-    // Always log the tap
-    axios.post(`${API_BASE_URL}/logs/`,
-      { icon_id: icon.id, icon_label: icon.label },
-      { headers }
-    ).catch(() => {});
-
-    // Also log to session if one is active
-    if (sessionCode) {
-      axios.post(`${API_BASE_URL}/sessions/log/`,
-        { session_code: sessionCode, icon_id: icon.id, icon_label: icon.label },
-        { headers }
-      ).catch(() => {});
-    }
   };
 
   const handleSpeak = () => {
@@ -119,29 +104,24 @@ const AACBoard: React.FC<AACBoardProps> = ({ onSendToTeacher, sessionCode }) => 
     });
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selected.length) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSendToTeacher?.(messageText);
-
     const headers = { Authorization: `Bearer ${token}` };
-
-    // Log the tap
-    axios.post(`${API_BASE_URL}/logs/`,
-      { icon_id: "message", icon_label: messageText, message: messageText },
-      { headers }
-    ).catch(() => {});
-
-    // Also send as a direct message so teacher sees it in Messages page
-    if (user?.teacher_id) {
-      axios.post(`${API_BASE_URL}/messages/`,
-        { receiver_id: user.teacher_id, text: messageText, is_aac: true },
+    try {
+      await axios.post(
+        `${API_BASE_URL}/cc/student-reply/`,
+        { text: messageText },
         { headers }
-      ).catch(() => {});
+      );
+      onSendToTeacher?.(messageText);
+      setSent(true);
+      setTimeout(() => { setSent(false); setSelected([]); }, 2000);
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "Could not send. Is a class session active?";
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      alert(msg);
     }
-
-    setSent(true);
-    setTimeout(() => { setSent(false); setSelected([]); }, 2000);
   };
 
   // ── No session → show waiting screen ────────────────────────────────────
